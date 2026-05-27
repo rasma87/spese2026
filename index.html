@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f1923">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Spese 2026">
+<title>Spese 2026</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #0f1923;
+  --bg2:       #162030;
+  --bg3:       #1e2d3d;
+  --border:    #2a3f55;
+  --accent:    #00d4aa;
+  --accent2:   #3b82f6;
+  --card:      #2264cc;
+  --cash:      #d97706;
+  --danger:    #ef4444;
+  --text:      #e8f0f8;
+  --muted:     #7a9ab8;
+  --radius:    14px;
+  --font:      'Sora', sans-serif;
+  --mono:      'DM Mono', monospace;
+  --safe-top:  env(safe-area-inset-top, 0px);
+  --safe-bot:  env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* ── TOP BAR ── */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--bg);
+  padding: calc(var(--safe-top) + 12px) 20px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.topbar h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: -.02em; }
+.topbar h1 span { color: var(--accent); }
+.month-pill {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 20px; padding: 6px 14px;
+  font-size: .8rem; font-weight: 600; color: var(--accent);
+  cursor: pointer; display: flex; align-items: center; gap: 6px;
+}
+
+/* ── TABS ── */
+.tabs {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+}
+.tab {
+  padding: 12px 4px; text-align: center;
+  font-size: .72rem; font-weight: 600; color: var(--muted);
+  cursor: pointer; border-bottom: 2px solid transparent;
+  transition: all .2s; letter-spacing: .03em; text-transform: uppercase;
+}
+.tab.active { color: var(--accent); border-color: var(--accent); }
+
+/* ── CONTENT ── */
+.content { padding: 16px 16px calc(80px + var(--safe-bot)); }
+
+/* ── CARDS ── */
+.card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
+}
+.card-title {
+  font-size: .68rem; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px;
+}
+
+/* ── BIG SALDO ── */
+.saldo-box {
+  background: linear-gradient(135deg, #0f2a1e 0%, #0a1f35 100%);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius); padding: 20px; margin-bottom: 12px;
+  text-align: center;
+}
+.saldo-label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+.saldo-value { font-family: var(--mono); font-size: 2.4rem; font-weight: 500; color: var(--accent); line-height: 1; }
+.saldo-value.negative { color: var(--danger); }
+.saldo-status { font-size: .78rem; margin-top: 8px; color: var(--muted); }
+
+/* ── STAT GRID ── */
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.stat {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 12px;
+}
+.stat.full { grid-column: 1/-1; }
+.stat-label { font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.stat-val { font-family: var(--mono); font-size: 1.2rem; font-weight: 500; }
+.stat-val.card-color { color: var(--accent2); }
+.stat-val.cash-color { color: var(--cash); }
+.stat-val.accent { color: var(--accent); }
+.stat-val.danger { color: var(--danger); }
+
+/* ── INPUT ROWS ── */
+.input-section { margin-bottom: 8px; }
+.input-label {
+  font-size: .68rem; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .08em;
+  padding: 10px 0 6px; display: flex; align-items: center; gap: 6px;
+}
+.input-label .dot { width: 6px; height: 6px; border-radius: 50%; }
+.dot-card { background: var(--accent2); }
+.dot-cash { background: var(--cash); }
+.dot-prev { background: var(--muted); }
+
+.category-row {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; margin-bottom: 6px; overflow: hidden;
+}
+.cat-header {
+  padding: 10px 14px; font-size: .88rem; font-weight: 600;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer;
+}
+.cat-name { flex: 1; }
+.cat-total { font-family: var(--mono); font-size: .88rem; color: var(--accent); }
+.cat-body { display: none; padding: 0 14px 12px; }
+.cat-body.open { display: block; }
+
+.input-group { margin-top: 10px; }
+.input-group label { font-size: .7rem; color: var(--muted); display: block; margin-bottom: 4px; }
+.input-wrap { position: relative; }
+.input-wrap .currency {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--muted); font-family: var(--mono); font-size: .9rem;
+}
+.input-wrap input {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px 10px 28px;
+  color: var(--text); font-family: var(--mono); font-size: 1rem;
+  outline: none; transition: border-color .2s;
+}
+.input-wrap input:focus { border-color: var(--accent2); }
+.input-wrap.card input:focus { border-color: var(--accent2); }
+.input-wrap.cash input:focus { border-color: var(--cash); }
+
+.inline-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+
+/* ── MONTH MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.7);
+  z-index: 200; display: none; align-items: flex-end;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg2); border-radius: 20px 20px 0 0;
+  padding: 24px 20px calc(20px + var(--safe-bot));
+  width: 100%;
+}
+.modal h3 { font-size: 1rem; margin-bottom: 16px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.month-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.month-btn {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 8px; text-align: center;
+  font-size: .88rem; font-weight: 600; cursor: pointer; transition: all .2s;
+}
+.month-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.modal-close { display: block; text-align: center; margin-top: 16px; color: var(--muted); font-size: .9rem; cursor: pointer; }
+
+/* ── RIEPILOGO TABLE ── */
+.riepilogo-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.riepilogo-table th {
+  font-size: .65rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); padding: 6px 8px; text-align: right; font-weight: 600;
+}
+.riepilogo-table th:first-child { text-align: left; }
+.riepilogo-table td { padding: 8px; border-top: 1px solid var(--border); }
+.riepilogo-table td:not(:first-child) { text-align: right; font-family: var(--mono); font-size: .82rem; }
+.riepilogo-table tr:last-child td { font-weight: 700; color: var(--accent); border-top: 2px solid var(--border); }
+
+/* ── BANCA TABLE ── */
+.banca-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.banca-row:last-child { border-bottom: none; }
+.banca-month { font-weight: 600; font-size: .9rem; }
+.banca-right { text-align: right; }
+.banca-saldo { font-family: var(--mono); font-size: 1rem; font-weight: 500; }
+.banca-saldo.pos { color: var(--accent); }
+.banca-saldo.neg { color: var(--danger); }
+.banca-detail { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--bg2); border-top: 1px solid var(--border);
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  padding-bottom: var(--safe-bot); z-index: 100;
+}
+.nav-btn {
+  padding: 10px 4px; text-align: center; cursor: pointer;
+  font-size: .62rem; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  transition: color .2s;
+}
+.nav-btn.active { color: var(--accent); }
+.nav-icon { font-size: 1.4rem; line-height: 1; }
+
+/* ── SECTION HIDDEN ── */
+.section { display: none; }
+.section.active { display: block; }
+
+/* ── SALDO INIZIALE ── */
+.saldo-init-row {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px;
+}
+.saldo-init-label { font-size: .8rem; color: var(--muted); }
+.saldo-init-input {
+  background: transparent; border: none; outline: none;
+  font-family: var(--mono); font-size: 1.1rem; color: var(--accent);
+  text-align: right; width: 140px;
+}
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: calc(70px + var(--safe-bot) + 10px); left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--accent); color: var(--bg);
+  padding: 10px 20px; border-radius: 20px;
+  font-size: .85rem; font-weight: 600;
+  opacity: 0; transition: all .3s; pointer-events: none; z-index: 300;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── PROGRESS BAR ── */
+.progress-wrap { margin-top: 8px; }
+.progress-bar-bg { background: var(--bg3); border-radius: 4px; height: 6px; overflow: hidden; }
+.progress-bar-fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width .4s; }
+.progress-bar-fill.over { background: var(--danger); }
+.progress-label { display: flex; justify-content: space-between; font-size: .68rem; color: var(--muted); margin-top: 4px; }
+</style>
+<script>
+(function(){
+  const manifest = {
+    name: 'Spese 2026',
+    short_name: 'Spese',
+    description: 'Tracker spese mensili',
+    start_url: '.',
+    display: 'standalone',
+    background_color: '#0f1923',
+    theme_color: '#0f1923',
+    icons: [{
+      src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6QMCCwkV7TATAAAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAABbklEQVR42u3BMQEAAADCoPVP7WsIoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeAMBuAABHgAAAABJRU5ErkJggg==",
+      sizes: '192x192', type: 'image/png'
+    }]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest'; link.href = url;
+  document.head.appendChild(link);
+})();
+</script>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <h1>Spese <span>2026</span></h1>
+  <div class="month-pill" onclick="openMonthModal()">
+    <span id="currentMonthLabel">Giugno</span> ▾
+  </div>
+</div>
+
+<!-- TABS (desktop-style, synced with bottom nav) -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('spese')">📝 Spese</div>
+  <div class="tab" onclick="switchTab('banca')">🏦 Banca</div>
+  <div class="tab" onclick="switchTab('riepilogo')">📊 Riepilogo</div>
+</div>
+
+<div class="content">
+
+  <!-- ══ TAB: SPESE ══ -->
+  <div class="section active" id="tab-spese">
+
+    <!-- Entrate + Budget -->
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="stat-label">💰 Entrate</div>
+        <div class="input-wrap">
+          <span class="currency">€</span>
+          <input type="number" inputmode="decimal" id="inp-entrate" placeholder="0.00" oninput="saveAndRefresh()">
+        </div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">🎯 Budget</div>
+        <div class="input-wrap">
+          <span class="currency">€</span>
+          <input type="number" inputmode="decimal" id="inp-budget" placeholder="0.00" oninput="saveAndRefresh()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Riepilogo mese -->
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="stat-label">💳 Carta</div>
+        <div class="stat-val card-color" id="sum-carta">€0,00</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">💵 Contanti</div>
+        <div class="stat-val cash-color" id="sum-contanti">€0,00</div>
+      </div>
+      <div class="stat full">
+        <div class="stat-label">Totale spese</div>
+        <div class="stat-val" id="sum-tot">€0,00</div>
+        <div class="progress-wrap">
+          <div class="progress-bar-bg"><div class="progress-bar-fill" id="budget-bar" style="width:0%"></div></div>
+          <div class="progress-label"><span id="budget-pct">0%</span><span id="budget-status">nei limiti</span></div>
+        </div>
+      </div>
+      <div class="stat full">
+        <div class="stat-label">Saldo mese (entrate − spese)</div>
+        <div class="stat-val accent" id="sum-saldo">€0,00</div>
+      </div>
+    </div>
+
+    <!-- Categorie -->
+    <div class="input-label">
+      <span class="dot dot-prev"></span> Voci di spesa
+    </div>
+    <div id="categories-container"></div>
+
+  </div>
+
+  <!-- ══ TAB: BANCA ══ -->
+  <div class="section" id="tab-banca">
+
+    <div class="saldo-init-row">
+      <div>
+        <div class="stat-label">Saldo iniziale al 1° Giugno</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px;">modifica se cambia</div>
+      </div>
+      <div class="input-wrap" style="width:150px">
+        <span class="currency">€</span>
+        <input type="number" inputmode="decimal" class="saldo-init-input" id="inp-saldo-iniziale" placeholder="0.00" oninput="saveAndRefresh()" style="padding-left:28px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding-top:10px;padding-bottom:10px;">
+      </div>
+    </div>
+
+    <!-- Saldo attuale -->
+    <div class="saldo-box">
+      <div class="saldo-label">Saldo attuale stimato</div>
+      <div class="saldo-value" id="banca-saldo-attuale">€0,00</div>
+      <div class="saldo-status" id="banca-status">—</div>
+    </div>
+
+    <!-- Mesi -->
+    <div class="card">
+      <div class="card-title">Storico mensile</div>
+      <div id="banca-mesi"></div>
+    </div>
+
+  </div>
+
+  <!-- ══ TAB: RIEPILOGO ══ -->
+  <div class="section" id="tab-riepilogo">
+
+    <!-- Totali per mese -->
+    <div class="card">
+      <div class="card-title">Spese per mese</div>
+      <div id="riepilogo-mesi-chart"></div>
+    </div>
+
+    <!-- Totali per categoria -->
+    <div class="card">
+      <div class="card-title">Totale per categoria (tutti i mesi)</div>
+      <div id="riepilogo-categorie"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <div class="nav-btn active" id="nav-spese" onclick="switchTab('spese')">
+    <span class="nav-icon">📝</span>Spese
+  </div>
+  <div class="nav-btn" id="nav-banca" onclick="switchTab('banca')">
+    <span class="nav-icon">🏦</span>Banca
+  </div>
+  <div class="nav-btn" id="nav-riepilogo" onclick="switchTab('riepilogo')">
+    <span class="nav-icon">📊</span>Riepilogo
+  </div>
+</div>
+
+<!-- MONTH MODAL -->
+<div class="modal-overlay" id="monthModal" onclick="closeMonthModal(event)">
+  <div class="modal">
+    <h3>Seleziona mese</h3>
+    <div class="month-grid" id="monthGrid"></div>
+    <div class="modal-close" onclick="closeMonthModal()">Chiudi</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">✓ Salvato</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────
+const MONTHS = ['Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+const CATEGORIES = [
+  'Affitto/Mutuo','Spesa alimentare','Ristoranti/Bar','Trasporti',
+  'Carburante','Abbigliamento','Salute/Farmacia','Sport/Benessere',
+  'Intrattenimento','Abbonamenti','Istruzione','Regali','Altro'
+];
+
+let currentMonth = 0; // index into MONTHS
+
+// Storage key: spese2026
+function storageKey() { return 'spese2026'; }
+
+function loadAll() {
+  try { return JSON.parse(localStorage.getItem(storageKey())) || {}; } catch { return {}; }
+}
+function saveAll(data) {
+  localStorage.setItem(storageKey(), JSON.stringify(data));
+}
+
+function getMonthData(mi) {
+  const all = loadAll();
+  if (!all[mi]) all[mi] = { entrate: '', budget: '', cats: {} };
+  if (!all[mi].cats) all[mi].cats = {};
+  CATEGORIES.forEach(c => {
+    if (!all[mi].cats[c]) all[mi].cats[c] = { prev: '', carta: '', contanti: '' };
+  });
+  return all[mi];
+}
+
+function setMonthData(mi, data) {
+  const all = loadAll();
+  all[mi] = data;
+  saveAll(all);
+}
+
+function getGlobal() {
+  const all = loadAll();
+  return all['global'] || { saldoIniziale: '' };
+}
+function setGlobal(g) {
+  const all = loadAll();
+  all['global'] = g;
+  saveAll(all);
+}
+
+// ── FORMAT ────────────────────────────────────────────────────────────
+function fmt(n) {
+  if (isNaN(n) || n === null) return '€0,00';
+  return '€' + Number(n).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function val(str) { return parseFloat(str) || 0; }
+
+// ── TABS ──────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+  document.getElementById('nav-' + tab).classList.add('active');
+  if (tab === 'banca') renderBanca();
+  if (tab === 'riepilogo') renderRiepilogo();
+}
+
+// ── MONTH MODAL ───────────────────────────────────────────────────────
+function openMonthModal() {
+  const grid = document.getElementById('monthGrid');
+  grid.innerHTML = MONTHS.map((m, i) =>
+    `<div class="month-btn ${i===currentMonth?'active':''}" onclick="selectMonth(${i})">${m}</div>`
+  ).join('');
+  document.getElementById('monthModal').classList.add('open');
+}
+function closeMonthModal(e) {
+  if (!e || e.target === document.getElementById('monthModal') || !e.target.closest('.modal'))
+    document.getElementById('monthModal').classList.remove('open');
+}
+function selectMonth(i) {
+  currentMonth = i;
+  document.getElementById('currentMonthLabel').textContent = MONTHS[i];
+  document.getElementById('monthModal').classList.remove('open');
+  renderSpese();
+}
+
+// ── RENDER SPESE ──────────────────────────────────────────────────────
+function renderSpese() {
+  const data = getMonthData(currentMonth);
+
+  document.getElementById('inp-entrate').value = data.entrate || '';
+  document.getElementById('inp-budget').value  = data.budget  || '';
+
+  // categories
+  const container = document.getElementById('categories-container');
+  container.innerHTML = CATEGORIES.map((cat, ci) => {
+    const cd = data.cats[cat] || { prev:'', carta:'', contanti:'' };
+    const tot = val(cd.carta) + val(cd.contanti);
+    return `
+    <div class="category-row" id="catrow-${ci}">
+      <div class="cat-header" onclick="toggleCat(${ci})">
+        <span class="cat-name">${cat}</span>
+        <span class="cat-total" id="cat-tot-${ci}">${tot > 0 ? fmt(tot) : ''}</span>
+        <span style="color:var(--muted);margin-left:8px;font-size:.8rem" id="cat-arrow-${ci}">›</span>
+      </div>
+      <div class="cat-body" id="cat-body-${ci}">
+        <div class="input-group">
+          <label>Previsto</label>
+          <div class="input-wrap">
+            <span class="currency">€</span>
+            <input type="number" inputmode="decimal" value="${cd.prev||''}" placeholder="0.00"
+              oninput="updateCat(${ci},'prev',this.value)">
+          </div>
+        </div>
+        <div class="inline-inputs">
+          <div class="input-group">
+            <label>💳 Carta</label>
+            <div class="input-wrap card">
+              <span class="currency">€</span>
+              <input type="number" inputmode="decimal" value="${cd.carta||''}" placeholder="0.00"
+                oninput="updateCat(${ci},'carta',this.value)">
+            </div>
+          </div>
+          <div class="input-group">
+            <label>💵 Contanti</label>
+            <div class="input-wrap cash">
+              <span class="currency">€</span>
+              <input type="number" inputmode="decimal" value="${cd.contanti||''}" placeholder="0.00"
+                oninput="updateCat(${ci},'contanti',this.value)">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  refreshTotals();
+}
+
+function toggleCat(ci) {
+  const body  = document.getElementById(`cat-body-${ci}`);
+  const arrow = document.getElementById(`cat-arrow-${ci}`);
+  const open  = body.classList.toggle('open');
+  arrow.textContent = open ? '⌄' : '›';
+  if (open) {
+    // focus first input
+    setTimeout(() => body.querySelector('input')?.focus(), 50);
+  }
+}
+
+function updateCat(ci, field, value) {
+  const data = getMonthData(currentMonth);
+  const cat  = CATEGORIES[ci];
+  if (!data.cats[cat]) data.cats[cat] = { prev:'', carta:'', contanti:'' };
+  data.cats[cat][field] = value;
+  setMonthData(currentMonth, data);
+  // update mini total
+  const cd  = data.cats[cat];
+  const tot = val(cd.carta) + val(cd.contanti);
+  const el  = document.getElementById(`cat-tot-${ci}`);
+  if (el) el.textContent = tot > 0 ? fmt(tot) : '';
+  refreshTotals();
+}
+
+function saveAndRefresh() {
+  const data = getMonthData(currentMonth);
+  data.entrate = document.getElementById('inp-entrate').value;
+  data.budget  = document.getElementById('inp-budget').value;
+  setMonthData(currentMonth, data);
+
+  // global saldo iniziale
+  const si = document.getElementById('inp-saldo-iniziale');
+  if (si) {
+    const g = getGlobal(); g.saldoIniziale = si.value; setGlobal(g);
+  }
+  refreshTotals();
+  showToast();
+}
+
+function refreshTotals() {
+  const data   = getMonthData(currentMonth);
+  let carta    = 0, contanti = 0;
+  CATEGORIES.forEach(cat => {
+    const cd = data.cats[cat] || {};
+    carta    += val(cd.carta);
+    contanti += val(cd.contanti);
+  });
+  const tot    = carta + contanti;
+  const entrate = val(data.entrate);
+  const budget  = val(data.budget);
+  const saldo   = entrate - tot;
+
+  document.getElementById('sum-carta').textContent    = fmt(carta);
+  document.getElementById('sum-contanti').textContent = fmt(contanti);
+  document.getElementById('sum-tot').textContent      = fmt(tot);
+  const saldoEl = document.getElementById('sum-saldo');
+  saldoEl.textContent = fmt(saldo);
+  saldoEl.className   = 'stat-val ' + (saldo >= 0 ? 'accent' : 'danger');
+
+  // budget bar
+  const pct = budget > 0 ? Math.min((tot / budget) * 100, 100) : 0;
+  const bar = document.getElementById('budget-bar');
+  bar.style.width = pct + '%';
+  bar.className   = 'progress-bar-fill' + (tot > budget && budget > 0 ? ' over' : '');
+  document.getElementById('budget-pct').textContent    = Math.round(pct) + '%';
+  document.getElementById('budget-status').textContent = (tot > budget && budget > 0) ? '⚠ budget superato' : 'nei limiti';
+}
+
+// ── RENDER BANCA ──────────────────────────────────────────────────────
+function renderBanca() {
+  const g  = getGlobal();
+  const si = document.getElementById('inp-saldo-iniziale');
+  if (si) si.value = g.saldoIniziale || '';
+
+  let saldo = val(g.saldoIniziale);
+  let html  = '';
+
+  MONTHS.forEach((month, mi) => {
+    const data    = getMonthData(mi);
+    let carta     = 0, contanti = 0;
+    CATEGORIES.forEach(cat => {
+      const cd = data.cats[cat] || {};
+      carta    += val(cd.carta);
+      contanti += val(cd.contanti);
+    });
+    const totSpese = carta + contanti;
+    const entrate  = val(data.entrate);
+    saldo = saldo + entrate - totSpese;
+
+    const cls = saldo >= 0 ? 'pos' : 'neg';
+    html += `
+      <div class="banca-row">
+        <div>
+          <div class="banca-month">${month}</div>
+          <div class="banca-detail">
+            +${fmt(entrate)} entrate &nbsp;·&nbsp;
+            <span style="color:var(--accent2)">💳${fmt(carta)}</span>
+            <span style="color:var(--cash)"> 💵${fmt(contanti)}</span>
+          </div>
+        </div>
+        <div class="banca-right">
+          <div class="banca-saldo ${cls}">${fmt(saldo)}</div>
+          <div class="banca-detail">${totSpese > 0 ? '−'+fmt(totSpese) : '—'}</div>
+        </div>
+      </div>`;
+  });
+
+  document.getElementById('banca-mesi').innerHTML = html;
+
+  const saEl  = document.getElementById('banca-saldo-attuale');
+  saEl.textContent = fmt(saldo);
+  saEl.className   = 'saldo-value' + (saldo < 0 ? ' negative' : '');
+  document.getElementById('banca-status').textContent = saldo >= 0 ? '✅ Saldo positivo' : '⚠️ Attenzione: saldo negativo!';
+}
+
+// ── RENDER RIEPILOGO ──────────────────────────────────────────────────
+function renderRiepilogo() {
+  // per mese
+  let mesiHtml = '<table class="riepilogo-table"><thead><tr><th>Mese</th><th>💳 Carta</th><th>💵 Cont.</th><th>Totale</th></tr></thead><tbody>';
+  let totCarta = 0, totCont = 0;
+
+  MONTHS.forEach((month, mi) => {
+    const data = getMonthData(mi);
+    let carta  = 0, contanti = 0;
+    CATEGORIES.forEach(cat => {
+      const cd = data.cats[cat] || {};
+      carta    += val(cd.carta);
+      contanti += val(cd.contanti);
+    });
+    const tot = carta + contanti;
+    totCarta += carta; totCont += contanti;
+    mesiHtml += `<tr>
+      <td>${month.substring(0,3)}</td>
+      <td style="color:var(--accent2)">${carta>0?fmt(carta):'—'}</td>
+      <td style="color:var(--cash)">${contanti>0?fmt(contanti):'—'}</td>
+      <td>${tot>0?fmt(tot):'—'}</td>
+    </tr>`;
+  });
+  mesiHtml += `<tr>
+    <td>Totale</td>
+    <td style="color:var(--accent2)">${fmt(totCarta)}</td>
+    <td style="color:var(--cash)">${fmt(totCont)}</td>
+    <td>${fmt(totCarta+totCont)}</td>
+  </tr></tbody></table>`;
+  document.getElementById('riepilogo-mesi-chart').innerHTML = mesiHtml;
+
+  // per categoria
+  let catRows = '';
+  const catTotals = CATEGORIES.map(cat => {
+    let tot = 0;
+    MONTHS.forEach((_, mi) => {
+      const cd = (getMonthData(mi).cats[cat]) || {};
+      tot += val(cd.carta) + val(cd.contanti);
+    });
+    return { cat, tot };
+  }).filter(x => x.tot > 0).sort((a,b) => b.tot - a.tot);
+
+  const maxTot = catTotals.length ? catTotals[0].tot : 1;
+  catTotals.forEach(({ cat, tot }) => {
+    const pct = Math.round((tot / maxTot) * 100);
+    catRows += `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:.85rem">${cat}</span>
+          <span style="font-family:var(--mono);font-size:.85rem;color:var(--accent)">${fmt(tot)}</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" style="width:${pct}%"></div>
+        </div>
+      </div>`;
+  });
+  document.getElementById('riepilogo-categorie').innerHTML = catRows || '<p style="color:var(--muted);font-size:.85rem">Nessun dato ancora</p>';
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast() {
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1500);
+}
+
+// ── SERVICE WORKER ────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  const swCode = `
+const CACHE = 'spese2026-v1';
+self.addEventListener('install', e => { self.skipWaiting(); });
+self.addEventListener('activate', e => { self.clients.claim(); });
+self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });
+  `;
+  const blob = new Blob([swCode], {type: 'application/javascript'});
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl).catch(() => {});
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────
+renderSpese();
+</script>
+</body>
+</html>

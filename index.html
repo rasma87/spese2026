@@ -307,14 +307,26 @@ body {
 
     <!-- Entrate + Budget -->
     <div class="stat-grid">
-      <div class="stat">
-        <div class="stat-label">💰 Entrate</div>
-        <div class="input-wrap">
-          <span class="currency">€</span>
-          <input type="number" inputmode="decimal" id="inp-entrate" placeholder="0.00" oninput="saveAndRefresh()">
+      <div class="stat full">
+        <div class="stat-label">💰 Entrate &nbsp;<span id="sum-entrate-tot" style="font-family:var(--mono);color:var(--accent);font-size:.85rem"></span></div>
+        <div class="inline-inputs">
+          <div class="input-group">
+            <label>💳 Carta</label>
+            <div class="input-wrap card">
+              <span class="currency">€</span>
+              <input type="number" inputmode="decimal" id="inp-entrate-carta" placeholder="0.00" oninput="saveAndRefresh()">
+            </div>
+          </div>
+          <div class="input-group">
+            <label>💵 Contanti</label>
+            <div class="input-wrap cash">
+              <span class="currency">€</span>
+              <input type="number" inputmode="decimal" id="inp-entrate-contanti" placeholder="0.00" oninput="saveAndRefresh()">
+            </div>
+          </div>
         </div>
       </div>
-      <div class="stat">
+      <div class="stat full">
         <div class="stat-label">🎯 Budget</div>
         <div class="input-wrap">
           <span class="currency">€</span>
@@ -451,8 +463,16 @@ function saveAll(data) {
 
 function getMonthData(mi) {
   const all = loadAll();
-  if (!all[mi]) all[mi] = { entrate: '', budget: '', cats: {} };
+  if (!all[mi]) all[mi] = { entrateCarta: '', entrateContanti: '', budget: '', cats: {} };
   if (!all[mi].cats) all[mi].cats = {};
+  // migrate old single-field entrate
+  if (all[mi].entrate !== undefined) {
+    all[mi].entrateCarta = all[mi].entrateCarta || all[mi].entrate;
+    delete all[mi].entrate;
+    saveAll(all);
+  }
+  if (all[mi].entrateCarta === undefined) all[mi].entrateCarta = '';
+  if (all[mi].entrateContanti === undefined) all[mi].entrateContanti = '';
   CATEGORIES.forEach(c => {
     if (!all[mi].cats[c]) all[mi].cats[c] = { prev: '', carta: '', contanti: '' };
   });
@@ -517,8 +537,9 @@ function selectMonth(i) {
 function renderSpese() {
   const data = getMonthData(currentMonth);
 
-  document.getElementById('inp-entrate').value = data.entrate || '';
-  document.getElementById('inp-budget').value  = data.budget  || '';
+  document.getElementById('inp-entrate-carta').value    = data.entrateCarta    || '';
+  document.getElementById('inp-entrate-contanti').value = data.entrateContanti || '';
+  document.getElementById('inp-budget').value           = data.budget          || '';
 
   // categories
   const container = document.getElementById('categories-container');
@@ -593,8 +614,9 @@ function updateCat(ci, field, value) {
 
 function saveAndRefresh() {
   const data = getMonthData(currentMonth);
-  data.entrate = document.getElementById('inp-entrate').value;
-  data.budget  = document.getElementById('inp-budget').value;
+  data.entrateCarta    = document.getElementById('inp-entrate-carta').value;
+  data.entrateContanti = document.getElementById('inp-entrate-contanti').value;
+  data.budget          = document.getElementById('inp-budget').value;
   setMonthData(currentMonth, data);
 
   // global saldo iniziale
@@ -614,10 +636,15 @@ function refreshTotals() {
     carta    += val(cd.carta);
     contanti += val(cd.contanti);
   });
-  const tot    = carta + contanti;
-  const entrate = val(data.entrate);
-  const budget  = val(data.budget);
-  const saldo   = entrate - tot;
+  const tot            = carta + contanti;
+  const entrateCarta   = val(data.entrateCarta);
+  const entrateContan  = val(data.entrateContanti);
+  const entrate        = entrateCarta + entrateContan;
+  const budget         = val(data.budget);
+  const saldo          = entrate - tot;
+
+  const totEl = document.getElementById('sum-entrate-tot');
+  if (totEl) totEl.textContent = entrate > 0 ? fmt(entrate) : '';
 
   document.getElementById('sum-carta').textContent    = fmt(carta);
   document.getElementById('sum-contanti').textContent = fmt(contanti);
@@ -653,7 +680,7 @@ function renderBanca() {
       contanti += val(cd.contanti);
     });
     const totSpese = carta + contanti;
-    const entrate  = val(data.entrate);
+    const entrate  = val(data.entrateCarta) + val(data.entrateContanti);
     saldo = saldo + entrate - totSpese;
 
     const cls = saldo >= 0 ? 'pos' : 'neg';
@@ -662,7 +689,7 @@ function renderBanca() {
         <div>
           <div class="banca-month">${month}</div>
           <div class="banca-detail">
-            +${fmt(entrate)} entrate &nbsp;·&nbsp;
+            <span style="color:var(--accent)">+${fmt(entrate)}</span> entrate &nbsp;·&nbsp;
             <span style="color:var(--accent2)">💳${fmt(carta)}</span>
             <span style="color:var(--cash)"> 💵${fmt(contanti)}</span>
           </div>
@@ -685,7 +712,7 @@ function renderBanca() {
 // ── RENDER RIEPILOGO ──────────────────────────────────────────────────
 function renderRiepilogo() {
   // per mese
-  let mesiHtml = '<table class="riepilogo-table"><thead><tr><th>Mese</th><th>💳 Carta</th><th>💵 Cont.</th><th>Totale</th></tr></thead><tbody>';
+  let mesiHtml = '<table class="riepilogo-table"><thead><tr><th>Mese</th><th>💳 Carta</th><th>💵 Cont.</th><th>Uscite</th><th style="color:var(--accent)">Entrate</th></tr></thead><tbody>';
   let totCarta = 0, totCont = 0;
 
   MONTHS.forEach((month, mi) => {
@@ -696,20 +723,27 @@ function renderRiepilogo() {
       carta    += val(cd.carta);
       contanti += val(cd.contanti);
     });
-    const tot = carta + contanti;
+    const tot     = carta + contanti;
+    const entrate = val(data.entrateCarta) + val(data.entrateContanti);
     totCarta += carta; totCont += contanti;
     mesiHtml += `<tr>
       <td>${month.substring(0,3)}</td>
       <td style="color:var(--accent2)">${carta>0?fmt(carta):'—'}</td>
       <td style="color:var(--cash)">${contanti>0?fmt(contanti):'—'}</td>
       <td>${tot>0?fmt(tot):'—'}</td>
+      <td style="color:var(--accent)">${entrate>0?fmt(entrate):'—'}</td>
     </tr>`;
   });
+  const totEntrate = MONTHS.reduce((s, _, mi) => {
+    const d = getMonthData(mi);
+    return s + val(d.entrateCarta) + val(d.entrateContanti);
+  }, 0);
   mesiHtml += `<tr>
     <td>Totale</td>
     <td style="color:var(--accent2)">${fmt(totCarta)}</td>
     <td style="color:var(--cash)">${fmt(totCont)}</td>
     <td>${fmt(totCarta+totCont)}</td>
+    <td style="color:var(--accent)">${fmt(totEntrate)}</td>
   </tr></tbody></table>`;
   document.getElementById('riepilogo-mesi-chart').innerHTML = mesiHtml;
 

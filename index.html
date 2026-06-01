@@ -474,7 +474,7 @@ function getMonthData(mi) {
   if (all[mi].entrateCarta === undefined) all[mi].entrateCarta = '';
   if (all[mi].entrateContanti === undefined) all[mi].entrateContanti = '';
   CATEGORIES.forEach(c => {
-    if (!all[mi].cats[c]) all[mi].cats[c] = { prev: '', carta: '', contanti: '' };
+    if (!all[mi].cats[c]) all[mi].cats[c] = { carta: '', contanti: '' };
   });
   return all[mi];
 }
@@ -544,7 +544,7 @@ function renderSpese() {
   // categories
   const container = document.getElementById('categories-container');
   container.innerHTML = CATEGORIES.map((cat, ci) => {
-    const cd = data.cats[cat] || { prev:'', carta:'', contanti:'' };
+    const cd = data.cats[cat] || { carta:'', contanti:'' };
     const tot = val(cd.carta) + val(cd.contanti);
     return `
     <div class="category-row" id="catrow-${ci}">
@@ -554,14 +554,6 @@ function renderSpese() {
         <span style="color:var(--muted);margin-left:8px;font-size:.8rem" id="cat-arrow-${ci}">›</span>
       </div>
       <div class="cat-body" id="cat-body-${ci}">
-        <div class="input-group">
-          <label>Previsto</label>
-          <div class="input-wrap">
-            <span class="currency">€</span>
-            <input type="number" inputmode="decimal" value="${cd.prev||''}" placeholder="0.00"
-              oninput="updateCat(${ci},'prev',this.value)">
-          </div>
-        </div>
         <div class="inline-inputs">
           <div class="input-group">
             <label>💳 Carta</label>
@@ -601,7 +593,7 @@ function toggleCat(ci) {
 function updateCat(ci, field, value) {
   const data = getMonthData(currentMonth);
   const cat  = CATEGORIES[ci];
-  if (!data.cats[cat]) data.cats[cat] = { prev:'', carta:'', contanti:'' };
+  if (!data.cats[cat]) data.cats[cat] = { carta:'', contanti:'' };
   data.cats[cat][field] = value;
   setMonthData(currentMonth, data);
   // update mini total

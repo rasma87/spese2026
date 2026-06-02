@@ -554,14 +554,6 @@ function renderSpese() {
         <span style="color:var(--muted);margin-left:8px;font-size:.8rem" id="cat-arrow-${ci}">›</span>
       </div>
       <div class="cat-body" id="cat-body-${ci}">
-        <div class="input-group">
-          <label>Previsto</label>
-          <div class="input-wrap">
-            <span class="currency">€</span>
-            <input type="number" inputmode="decimal" value="${cd.prev||''}" placeholder="0.00"
-              oninput="updateCat(${ci},'prev',this.value)">
-          </div>
-        </div>
         <div class="inline-inputs">
           <div class="input-group">
             <label>💳 Carta</label>

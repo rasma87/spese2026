@@ -331,14 +331,14 @@ body {
             <label>💳 Carta</label>
             <div class="input-wrap card">
               <span class="currency">€</span>
-              <input type="number" inputmode="decimal" id="inp-entrate-carta" placeholder="0.00" oninput="saveAndRefresh()">
+              <input type="number" inputmode="decimal" id="inp-entrate-carta" placeholder="0.00" oninput="saveAndRefresh()" onchange="saveAndRefresh()">
             </div>
           </div>
           <div class="input-group">
             <label>💵 Contanti</label>
             <div class="input-wrap cash">
               <span class="currency">€</span>
-              <input type="number" inputmode="decimal" id="inp-entrate-contanti" placeholder="0.00" oninput="saveAndRefresh()">
+              <input type="number" inputmode="decimal" id="inp-entrate-contanti" placeholder="0.00" oninput="saveAndRefresh()" onchange="saveAndRefresh()">
             </div>
           </div>
         </div>
@@ -608,8 +608,9 @@ function renderVoci(ci, items) {
       <div class="voce-row">
         <div class="voce-wrap">
           <span class="currency">€</span>
-          <input type="number" inputmode="decimal" placeholder="0.00" value="${item.amount||''}"
-            oninput="updateVoce(${ci},${ii},'amount',this.value)">
+          <input type="text" inputmode="decimal" placeholder="0.00" value="${item.amount||''}"
+            oninput="updateVoce(${ci},${ii},'amount',this.value)"
+            onchange="updateVoce(${ci},${ii},'amount',this.value)">
         </div>
         <button class="tipo-btn ${item.tipo==='carta'?'tipo-carta':'tipo-cash'}" onclick="toggleTipo(${ci},${ii})">
           ${item.tipo==='carta'?'💳 Carta':'💵 Contanti'}
@@ -779,7 +780,7 @@ function refreshTotals() {
   document.getElementById('budget-pct').textContent    = Math.round(pct) + '%';
   document.getElementById('budget-status').textContent = (tot > budget && budget > 0) ? '⚠ budget superato' : 'nei limiti';
 
-  if (document.getElementById('tab-banca')?.classList.contains('active')) renderBanca();
+  renderBanca();
 }
 
 // ── RENDER BANCA ──────────────────────────────────────────────────────

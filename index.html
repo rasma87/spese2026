@@ -391,9 +391,12 @@ body {
         <div class="stat-label">Saldo iniziale al 1° Giugno</div>
         <div style="font-size:.72rem;color:var(--muted);margin-top:2px;">modifica se cambia</div>
       </div>
-      <div class="input-wrap" style="width:150px">
-        <span class="currency">€</span>
-        <input type="number" inputmode="decimal" class="saldo-init-input" id="inp-saldo-iniziale" placeholder="0.00" oninput="saveAndRefresh()">
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="sign-btn" id="btn-saldo-sign" onclick="toggleSaldoSign()">+</button>
+        <div class="input-wrap" style="width:130px">
+          <span class="currency">€</span>
+          <input type="text" inputmode="decimal" class="saldo-init-input" id="inp-saldo-iniziale" placeholder="0.00" oninput="saveAndRefresh()">
+        </div>
       </div>
     </div>
 
@@ -683,6 +686,17 @@ function toggleTipo(ci, ii) {
   refreshTotals();
 }
 
+function toggleSaldoSign() {
+  const si  = document.getElementById('inp-saldo-iniziale');
+  const btn = document.getElementById('btn-saldo-sign');
+  const n   = val(si.value);
+  const newVal = n === 0 ? '' : String(-n);
+  si.value = newVal;
+  if (btn) btn.textContent = newVal.startsWith('-') ? '−' : '+';
+  const g = getGlobal(); g.saldoIniziale = newVal; setGlobal(g);
+  renderBanca();
+}
+
 function toggleSign(ci, ii) {
   const cat  = CATEGORIES[ci];
   const data = getMonthData(currentMonth);
@@ -761,7 +775,11 @@ function refreshTotals() {
 function renderBanca() {
   const g  = getGlobal();
   const si = document.getElementById('inp-saldo-iniziale');
-  if (si) si.value = g.saldoIniziale || '';
+  if (si) {
+    si.value = g.saldoIniziale || '';
+    const btn = document.getElementById('btn-saldo-sign');
+    if (btn) btn.textContent = String(g.saldoIniziale||'').startsWith('-') ? '−' : '+';
+  }
 
   let saldo = val(g.saldoIniziale);
   let html  = '';

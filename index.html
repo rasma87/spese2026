@@ -672,8 +672,8 @@ function renderBanca() {
       contanti += val(cd.contanti);
     });
     const totSpese = carta + contanti;
-    const entrate  = val(data.entrateCarta) + val(data.entrateContanti);
-    saldo = saldo + entrate - totSpese;
+    const entrateCarta = val(data.entrateCarta);
+    saldo = saldo + entrateCarta - carta;
 
     const cls = saldo >= 0 ? 'pos' : 'neg';
     html += `
@@ -681,14 +681,13 @@ function renderBanca() {
         <div>
           <div class="banca-month">${month}</div>
           <div class="banca-detail">
-            <span style="color:var(--accent)">+${fmt(entrate)}</span> entrate &nbsp;·&nbsp;
-            <span style="color:var(--accent2)">💳${fmt(carta)}</span>
-            <span style="color:var(--cash)"> 💵${fmt(contanti)}</span>
+            <span style="color:var(--accent)">+${fmt(entrateCarta)}</span> entrate carta &nbsp;·&nbsp;
+            <span style="color:var(--accent2)">💳${fmt(carta)}</span> spese carta
           </div>
         </div>
         <div class="banca-right">
           <div class="banca-saldo ${cls}">${fmt(saldo)}</div>
-          <div class="banca-detail">${totSpese > 0 ? '−'+fmt(totSpese) : '—'}</div>
+          <div class="banca-detail">${carta > 0 ? '−'+fmt(carta) : '—'}</div>
         </div>
       </div>`;
   });

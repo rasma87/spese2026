@@ -606,10 +606,9 @@ function renderVoci(ci, items) {
       <input type="text" class="voce-desc" placeholder="Descrizione (opzionale)" value="${(item.desc||'').replace(/"/g,'&quot;')}"
         oninput="updateVoce(${ci},${ii},'desc',this.value)">
       <div class="voce-row">
-        <button class="sign-btn${(item.amount||'').startsWith('-')?' negative':''}" onclick="toggleSign(${ci},${ii})">${(item.amount||'').startsWith('-')?'−':'+'}</button>
         <div class="voce-wrap">
           <span class="currency">€</span>
-          <input type="text" inputmode="decimal" placeholder="0.00" value="${item.amount||''}"
+          <input type="number" inputmode="decimal" placeholder="0.00" value="${item.amount||''}"
             oninput="updateVoce(${ci},${ii},'amount',this.value)">
         </div>
         <button class="tipo-btn ${item.tipo==='carta'?'tipo-carta':'tipo-cash'}" onclick="toggleTipo(${ci},${ii})">

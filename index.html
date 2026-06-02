@@ -778,6 +778,8 @@ function refreshTotals() {
   bar.className   = 'progress-bar-fill' + (tot > budget && budget > 0 ? ' over' : '');
   document.getElementById('budget-pct').textContent    = Math.round(pct) + '%';
   document.getElementById('budget-status').textContent = (tot > budget && budget > 0) ? '⚠ budget superato' : 'nei limiti';
+
+  if (document.getElementById('tab-banca')?.classList.contains('active')) renderBanca();
 }
 
 // ── RENDER BANCA ──────────────────────────────────────────────────────

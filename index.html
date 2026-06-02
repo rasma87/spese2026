@@ -173,6 +173,7 @@ body {
 .tipo-carta { background: rgba(59,130,246,.18); color: var(--accent2); border: 1px solid rgba(59,130,246,.35); }
 .tipo-cash { background: rgba(217,119,6,.18); color: var(--cash); border: 1px solid rgba(217,119,6,.35); }
 .voce-del { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25); border-radius: 6px; color: var(--danger); font-size: .9rem; cursor: pointer; padding: 0 10px; min-height: 36px; min-width: 36px; }
+.sign-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: var(--mono); font-size: 1rem; font-weight: 700; cursor: pointer; min-height: 36px; min-width: 32px; padding: 0 6px; }
 .btn-add-voce { width: 100%; margin-top: 10px; background: transparent; border: 1px dashed var(--border); border-radius: 8px; color: var(--accent); font-size: .82rem; font-weight: 600; padding: 10px; cursor: pointer; }
 
 /* ── MONTH MODAL ── */
@@ -390,9 +391,12 @@ body {
         <div class="stat-label">Saldo iniziale al 1° Giugno</div>
         <div style="font-size:.72rem;color:var(--muted);margin-top:2px;">modifica se cambia</div>
       </div>
-      <div class="input-wrap" style="width:150px">
-        <span class="currency">€</span>
-        <input type="number" inputmode="decimal" class="saldo-init-input" id="inp-saldo-iniziale" placeholder="0.00" oninput="saveAndRefresh()">
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="sign-btn" id="btn-saldo-sign" onclick="toggleSaldoSign()">+</button>
+        <div class="input-wrap" style="width:130px">
+          <span class="currency">€</span>
+          <input type="text" inputmode="decimal" class="saldo-init-input" id="inp-saldo-iniziale" placeholder="0.00" oninput="saveAndRefresh()">
+        </div>
       </div>
     </div>
 
@@ -523,7 +527,7 @@ function fmt(n) {
   if (isNaN(n) || n === null) return '€0,00';
   return '€' + Number(n).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-function val(str) { return parseFloat(str) || 0; }
+function val(str) { return parseFloat(String(str).replace(',', '.')) || 0; }
 
 // ── TABS ──────────────────────────────────────────────────────────────
 function switchTab(tab) {
@@ -601,9 +605,10 @@ function renderVoci(ci, items) {
       <input type="text" class="voce-desc" placeholder="Descrizione (opzionale)" value="${(item.desc||'').replace(/"/g,'&quot;')}"
         oninput="updateVoce(${ci},${ii},'desc',this.value)">
       <div class="voce-row">
+        <button class="sign-btn" onclick="toggleSign(${ci},${ii})">${(item.amount||'').startsWith('-')?'−':'+'}</button>
         <div class="voce-wrap">
           <span class="currency">€</span>
-          <input type="number" inputmode="decimal" placeholder="0.00" value="${item.amount||''}"
+          <input type="text" inputmode="decimal" placeholder="0.00" value="${item.amount||''}"
             oninput="updateVoce(${ci},${ii},'amount',this.value)">
         </div>
         <button class="tipo-btn ${item.tipo==='carta'?'tipo-carta':'tipo-cash'}" onclick="toggleTipo(${ci},${ii})">
@@ -681,6 +686,32 @@ function toggleTipo(ci, ii) {
   refreshTotals();
 }
 
+function toggleSaldoSign() {
+  const si  = document.getElementById('inp-saldo-iniziale');
+  const btn = document.getElementById('btn-saldo-sign');
+  const n   = val(si.value);
+  const newVal = n === 0 ? '' : String(-n);
+  si.value = newVal;
+  if (btn) btn.textContent = newVal.startsWith('-') ? '−' : '+';
+  const g = getGlobal(); g.saldoIniziale = newVal; setGlobal(g);
+  renderBanca();
+}
+
+function toggleSign(ci, ii) {
+  const cat  = CATEGORIES[ci];
+  const data = getMonthData(currentMonth);
+  const item = data.cats[cat][ii];
+  const n    = val(item.amount);
+  item.amount = n === 0 ? '' : String(-n);
+  setMonthData(currentMonth, data);
+  renderVoci(ci, data.cats[cat]);
+  const { carta, contanti } = catTotals(data.cats[cat]);
+  const tot = carta + contanti;
+  const el  = document.getElementById(`cat-tot-${ci}`);
+  if (el) el.textContent = tot > 0 ? fmt(tot) : '';
+  refreshTotals();
+}
+
 function saveAndRefresh() {
   const data = getMonthData(currentMonth);
   data.entrateCarta    = document.getElementById('inp-entrate-carta').value;
@@ -744,7 +775,11 @@ function refreshTotals() {
 function renderBanca() {
   const g  = getGlobal();
   const si = document.getElementById('inp-saldo-iniziale');
-  if (si) si.value = g.saldoIniziale || '';
+  if (si) {
+    si.value = g.saldoIniziale || '';
+    const btn = document.getElementById('btn-saldo-sign');
+    if (btn) btn.textContent = String(g.saldoIniziale||'').startsWith('-') ? '−' : '+';
+  }
 
   let saldo = val(g.saldoIniziale);
   let html  = '';

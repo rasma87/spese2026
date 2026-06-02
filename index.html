@@ -173,6 +173,7 @@ body {
 .tipo-carta { background: rgba(59,130,246,.18); color: var(--accent2); border: 1px solid rgba(59,130,246,.35); }
 .tipo-cash { background: rgba(217,119,6,.18); color: var(--cash); border: 1px solid rgba(217,119,6,.35); }
 .voce-del { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25); border-radius: 6px; color: var(--danger); font-size: .9rem; cursor: pointer; padding: 0 10px; min-height: 36px; min-width: 36px; }
+.sign-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: var(--mono); font-size: 1rem; font-weight: 700; cursor: pointer; min-height: 36px; min-width: 32px; padding: 0 6px; }
 .btn-add-voce { width: 100%; margin-top: 10px; background: transparent; border: 1px dashed var(--border); border-radius: 8px; color: var(--accent); font-size: .82rem; font-weight: 600; padding: 10px; cursor: pointer; }
 
 /* ── MONTH MODAL ── */
@@ -523,7 +524,7 @@ function fmt(n) {
   if (isNaN(n) || n === null) return '€0,00';
   return '€' + Number(n).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-function val(str) { return parseFloat(str) || 0; }
+function val(str) { return parseFloat(String(str).replace(',', '.')) || 0; }
 
 // ── TABS ──────────────────────────────────────────────────────────────
 function switchTab(tab) {
@@ -601,9 +602,10 @@ function renderVoci(ci, items) {
       <input type="text" class="voce-desc" placeholder="Descrizione (opzionale)" value="${(item.desc||'').replace(/"/g,'&quot;')}"
         oninput="updateVoce(${ci},${ii},'desc',this.value)">
       <div class="voce-row">
+        <button class="sign-btn" onclick="toggleSign(${ci},${ii})">${(item.amount||'').startsWith('-')?'−':'+'}</button>
         <div class="voce-wrap">
           <span class="currency">€</span>
-          <input type="number" inputmode="decimal" placeholder="0.00" value="${item.amount||''}"
+          <input type="text" inputmode="decimal" placeholder="0.00" value="${item.amount||''}"
             oninput="updateVoce(${ci},${ii},'amount',this.value)">
         </div>
         <button class="tipo-btn ${item.tipo==='carta'?'tipo-carta':'tipo-cash'}" onclick="toggleTipo(${ci},${ii})">
@@ -678,6 +680,21 @@ function toggleTipo(ci, ii) {
   data.cats[cat][ii].tipo = data.cats[cat][ii].tipo === 'carta' ? 'contanti' : 'carta';
   setMonthData(currentMonth, data);
   renderVoci(ci, data.cats[cat]);
+  refreshTotals();
+}
+
+function toggleSign(ci, ii) {
+  const cat  = CATEGORIES[ci];
+  const data = getMonthData(currentMonth);
+  const item = data.cats[cat][ii];
+  const n    = val(item.amount);
+  item.amount = n === 0 ? '' : String(-n);
+  setMonthData(currentMonth, data);
+  renderVoci(ci, data.cats[cat]);
+  const { carta, contanti } = catTotals(data.cats[cat]);
+  const tot = carta + contanti;
+  const el  = document.getElementById(`cat-tot-${ci}`);
+  if (el) el.textContent = tot > 0 ? fmt(tot) : '';
   refreshTotals();
 }
 

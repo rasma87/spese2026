@@ -160,6 +160,21 @@ body {
 
 .inline-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 
+.voci-list { margin-top: 6px; }
+.voce-empty { font-size: .78rem; color: var(--muted); padding: 6px 0; }
+.voce-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 8px; margin-bottom: 6px; }
+.voce-desc { width: 100%; background: transparent; border: none; outline: none; color: var(--text); font-family: var(--font); font-size: .88rem; padding: 0 0 6px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.voce-desc::placeholder { color: var(--muted); }
+.voce-row { display: flex; align-items: center; gap: 6px; }
+.voce-wrap { flex: 1; position: relative; }
+.voce-wrap input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 8px 8px 24px; color: var(--text); font-family: var(--mono); font-size: .9rem; outline: none; -webkit-appearance: none; appearance: none; }
+.voce-wrap .currency { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--muted); font-family: var(--mono); font-size: .82rem; }
+.tipo-btn { border: none; border-radius: 6px; padding: 8px 10px; font-size: .78rem; font-weight: 600; cursor: pointer; white-space: nowrap; min-height: 36px; }
+.tipo-carta { background: rgba(59,130,246,.18); color: var(--accent2); border: 1px solid rgba(59,130,246,.35); }
+.tipo-cash { background: rgba(217,119,6,.18); color: var(--cash); border: 1px solid rgba(217,119,6,.35); }
+.voce-del { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25); border-radius: 6px; color: var(--danger); font-size: .9rem; cursor: pointer; padding: 0 10px; min-height: 36px; min-width: 36px; }
+.btn-add-voce { width: 100%; margin-top: 10px; background: transparent; border: 1px dashed var(--border); border-radius: 8px; color: var(--accent); font-size: .82rem; font-weight: 600; padding: 10px; cursor: pointer; }
+
 /* ── MONTH MODAL ── */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,.7);
@@ -474,7 +489,15 @@ function getMonthData(mi) {
   if (all[mi].entrateCarta === undefined) all[mi].entrateCarta = '';
   if (all[mi].entrateContanti === undefined) all[mi].entrateContanti = '';
   CATEGORIES.forEach(c => {
-    if (!all[mi].cats[c]) all[mi].cats[c] = { prev: '', carta: '', contanti: '' };
+    const existing = all[mi].cats[c];
+    if (!existing) {
+      all[mi].cats[c] = [];
+    } else if (!Array.isArray(existing)) {
+      const items = [];
+      if (val(existing.carta) > 0) items.push({ desc: '', amount: existing.carta, tipo: 'carta' });
+      if (val(existing.contanti) > 0) items.push({ desc: '', amount: existing.contanti, tipo: 'contanti' });
+      all[mi].cats[c] = items;
+    }
   });
   return all[mi];
 }
@@ -544,8 +567,9 @@ function renderSpese() {
   // categories
   const container = document.getElementById('categories-container');
   container.innerHTML = CATEGORIES.map((cat, ci) => {
-    const cd = data.cats[cat] || { prev:'', carta:'', contanti:'' };
-    const tot = val(cd.carta) + val(cd.contanti);
+    const items = data.cats[cat] || [];
+    const { carta, contanti } = catTotals(items);
+    const tot = carta + contanti;
     return `
     <div class="category-row" id="catrow-${ci}">
       <div class="cat-header" onclick="toggleCat(${ci})">
@@ -554,29 +578,41 @@ function renderSpese() {
         <span style="color:var(--muted);margin-left:8px;font-size:.8rem" id="cat-arrow-${ci}">›</span>
       </div>
       <div class="cat-body" id="cat-body-${ci}">
-        <div class="inline-inputs">
-          <div class="input-group">
-            <label>💳 Carta</label>
-            <div class="input-wrap card">
-              <span class="currency">€</span>
-              <input type="number" inputmode="decimal" value="${cd.carta||''}" placeholder="0.00"
-                oninput="updateCat(${ci},'carta',this.value)">
-            </div>
-          </div>
-          <div class="input-group">
-            <label>💵 Contanti</label>
-            <div class="input-wrap cash">
-              <span class="currency">€</span>
-              <input type="number" inputmode="decimal" value="${cd.contanti||''}" placeholder="0.00"
-                oninput="updateCat(${ci},'contanti',this.value)">
-            </div>
-          </div>
-        </div>
+        <div class="voci-list" id="voci-${ci}"></div>
+        <button class="btn-add-voce" onclick="addVoce(${ci})">+ Aggiungi voce</button>
       </div>
     </div>`;
   }).join('');
 
+  CATEGORIES.forEach((cat, ci) => renderVoci(ci, data.cats[cat] || []));
+
   refreshTotals();
+}
+
+function renderVoci(ci, items) {
+  const container = document.getElementById(`voci-${ci}`);
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = '<div class="voce-empty">Nessuna voce — premi + per aggiungere</div>';
+    return;
+  }
+  container.innerHTML = items.map((item, ii) => `
+    <div class="voce-item">
+      <input type="text" class="voce-desc" placeholder="Descrizione (opzionale)" value="${(item.desc||'').replace(/"/g,'&quot;')}"
+        oninput="updateVoce(${ci},${ii},'desc',this.value)">
+      <div class="voce-row">
+        <div class="voce-wrap">
+          <span class="currency">€</span>
+          <input type="number" inputmode="decimal" placeholder="0.00" value="${item.amount||''}"
+            oninput="updateVoce(${ci},${ii},'amount',this.value)">
+        </div>
+        <button class="tipo-btn ${item.tipo==='carta'?'tipo-carta':'tipo-cash'}" onclick="toggleTipo(${ci},${ii})">
+          ${item.tipo==='carta'?'💳 Carta':'💵 Contanti'}
+        </button>
+        <button class="voce-del" onclick="deleteVoce(${ci},${ii})">✕</button>
+      </div>
+    </div>
+  `).join('');
 }
 
 function toggleCat(ci) {
@@ -584,23 +620,64 @@ function toggleCat(ci) {
   const arrow = document.getElementById(`cat-arrow-${ci}`);
   const open  = body.classList.toggle('open');
   arrow.textContent = open ? '⌄' : '›';
-  if (open) {
-    // focus first input
-    setTimeout(() => body.querySelector('input')?.focus(), 50);
+}
+
+function addVoce(ci) {
+  const cat  = CATEGORIES[ci];
+  const data = getMonthData(currentMonth);
+  if (!Array.isArray(data.cats[cat])) data.cats[cat] = [];
+  data.cats[cat].push({ desc: '', amount: '', tipo: 'carta' });
+  setMonthData(currentMonth, data);
+  const body  = document.getElementById(`cat-body-${ci}`);
+  const arrow = document.getElementById(`cat-arrow-${ci}`);
+  if (body && !body.classList.contains('open')) {
+    body.classList.add('open');
+    if (arrow) arrow.textContent = '⌄';
+  }
+  renderVoci(ci, data.cats[cat]);
+  refreshTotals();
+  setTimeout(() => {
+    const list   = document.getElementById(`voci-${ci}`);
+    const inputs = list?.querySelectorAll('.voce-desc');
+    inputs?.[inputs.length - 1]?.focus();
+  }, 50);
+}
+
+function updateVoce(ci, ii, field, value) {
+  const cat  = CATEGORIES[ci];
+  const data = getMonthData(currentMonth);
+  if (!Array.isArray(data.cats[cat])) data.cats[cat] = [];
+  if (!data.cats[cat][ii]) return;
+  data.cats[cat][ii][field] = value;
+  setMonthData(currentMonth, data);
+  if (field === 'amount') {
+    const { carta, contanti } = catTotals(data.cats[cat]);
+    const tot = carta + contanti;
+    const el  = document.getElementById(`cat-tot-${ci}`);
+    if (el) el.textContent = tot > 0 ? fmt(tot) : '';
+    refreshTotals();
   }
 }
 
-function updateCat(ci, field, value) {
-  const data = getMonthData(currentMonth);
+function deleteVoce(ci, ii) {
   const cat  = CATEGORIES[ci];
-  if (!data.cats[cat]) data.cats[cat] = { prev:'', carta:'', contanti:'' };
-  data.cats[cat][field] = value;
+  const data = getMonthData(currentMonth);
+  data.cats[cat].splice(ii, 1);
   setMonthData(currentMonth, data);
-  // update mini total
-  const cd  = data.cats[cat];
-  const tot = val(cd.carta) + val(cd.contanti);
+  renderVoci(ci, data.cats[cat]);
+  const { carta, contanti } = catTotals(data.cats[cat]);
+  const tot = carta + contanti;
   const el  = document.getElementById(`cat-tot-${ci}`);
   if (el) el.textContent = tot > 0 ? fmt(tot) : '';
+  refreshTotals();
+}
+
+function toggleTipo(ci, ii) {
+  const cat  = CATEGORIES[ci];
+  const data = getMonthData(currentMonth);
+  data.cats[cat][ii].tipo = data.cats[cat][ii].tipo === 'carta' ? 'contanti' : 'carta';
+  setMonthData(currentMonth, data);
+  renderVoci(ci, data.cats[cat]);
   refreshTotals();
 }
 
@@ -620,13 +697,22 @@ function saveAndRefresh() {
   showToast();
 }
 
+function catTotals(items) {
+  let carta = 0, contanti = 0;
+  (Array.isArray(items) ? items : []).forEach(it => {
+    if (it.tipo === 'carta') carta += val(it.amount);
+    else contanti += val(it.amount);
+  });
+  return { carta, contanti };
+}
+
 function refreshTotals() {
   const data   = getMonthData(currentMonth);
   let carta    = 0, contanti = 0;
   CATEGORIES.forEach(cat => {
-    const cd = data.cats[cat] || {};
-    carta    += val(cd.carta);
-    contanti += val(cd.contanti);
+    const t = catTotals(data.cats[cat]);
+    carta    += t.carta;
+    contanti += t.contanti;
   });
   const tot            = carta + contanti;
   const entrateCarta   = val(data.entrateCarta);
@@ -667,9 +753,9 @@ function renderBanca() {
     const data    = getMonthData(mi);
     let carta     = 0, contanti = 0;
     CATEGORIES.forEach(cat => {
-      const cd = data.cats[cat] || {};
-      carta    += val(cd.carta);
-      contanti += val(cd.contanti);
+      const t = catTotals(data.cats[cat]);
+      carta    += t.carta;
+      contanti += t.contanti;
     });
     const totSpese = carta + contanti;
     const entrateCarta = val(data.entrateCarta);
@@ -710,9 +796,9 @@ function renderRiepilogo() {
     const data = getMonthData(mi);
     let carta  = 0, contanti = 0;
     CATEGORIES.forEach(cat => {
-      const cd = data.cats[cat] || {};
-      carta    += val(cd.carta);
-      contanti += val(cd.contanti);
+      const t = catTotals(data.cats[cat]);
+      carta    += t.carta;
+      contanti += t.contanti;
     });
     const tot     = carta + contanti;
     const entrate = val(data.entrateCarta) + val(data.entrateContanti);
@@ -740,17 +826,17 @@ function renderRiepilogo() {
 
   // per categoria
   let catRows = '';
-  const catTotals = CATEGORIES.map(cat => {
+  const catSummary = CATEGORIES.map(cat => {
     let tot = 0;
     MONTHS.forEach((_, mi) => {
-      const cd = (getMonthData(mi).cats[cat]) || {};
-      tot += val(cd.carta) + val(cd.contanti);
+      const t = catTotals(getMonthData(mi).cats[cat]);
+      tot += t.carta + t.contanti;
     });
     return { cat, tot };
   }).filter(x => x.tot > 0).sort((a,b) => b.tot - a.tot);
 
-  const maxTot = catTotals.length ? catTotals[0].tot : 1;
-  catTotals.forEach(({ cat, tot }) => {
+  const maxTot = catSummary.length ? catSummary[0].tot : 1;
+  catSummary.forEach(({ cat, tot }) => {
     const pct = Math.round((tot / maxTot) * 100);
     catRows += `
       <div style="margin-bottom:12px">

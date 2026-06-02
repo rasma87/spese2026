@@ -32,7 +32,7 @@
   --safe-bot:  env(safe-area-inset-bottom, 0px);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 
 body {
   font-family: var(--font);
@@ -779,8 +779,6 @@ function refreshTotals() {
   bar.className   = 'progress-bar-fill' + (tot > budget && budget > 0 ? ' over' : '');
   document.getElementById('budget-pct').textContent    = Math.round(pct) + '%';
   document.getElementById('budget-status').textContent = (tot > budget && budget > 0) ? '⚠ budget superato' : 'nei limiti';
-
-  renderBanca();
 }
 
 // ── RENDER BANCA ──────────────────────────────────────────────────────
@@ -912,7 +910,7 @@ function showToast() {
 // ── SERVICE WORKER ────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   const swCode = `
-const CACHE = 'spese2026-v1';
+const CACHE = 'spese2026-v3';
 self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => { self.clients.claim(); });
 self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });

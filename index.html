@@ -270,12 +270,7 @@ body {
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* ── PROGRESS BAR ── */
-.progress-wrap { margin-top: 8px; }
-.progress-bar-bg { background: var(--bg3); border-radius: 4px; height: 6px; overflow: hidden; }
-.progress-bar-fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width .4s; }
-.progress-bar-fill.over { background: var(--danger); }
-.progress-label { display: flex; justify-content: space-between; font-size: .68rem; color: var(--muted); margin-top: 4px; }
+
 </style>
 <script>
 (function(){
@@ -343,13 +338,6 @@ body {
           </div>
         </div>
       </div>
-      <div class="stat full">
-        <div class="stat-label">🎯 Budget</div>
-        <div class="input-wrap">
-          <span class="currency">€</span>
-          <input type="number" inputmode="decimal" id="inp-budget" placeholder="0.00" oninput="saveAndRefresh()">
-        </div>
-      </div>
     </div>
 
     <!-- Riepilogo mese -->
@@ -365,10 +353,6 @@ body {
       <div class="stat full">
         <div class="stat-label">Totale spese</div>
         <div class="stat-val" id="sum-tot">€0,00</div>
-        <div class="progress-wrap">
-          <div class="progress-bar-bg"><div class="progress-bar-fill" id="budget-bar" style="width:0%"></div></div>
-          <div class="progress-label"><span id="budget-pct">0%</span><span id="budget-status">nei limiti</span></div>
-        </div>
       </div>
       <div class="stat full">
         <div class="stat-label">Saldo mese (entrate − spese)</div>
@@ -483,7 +467,7 @@ function saveAll(data) {
 
 function getMonthData(mi) {
   const all = loadAll();
-  if (!all[mi]) all[mi] = { entrateCarta: '', entrateContanti: '', budget: '', cats: {} };
+  if (!all[mi]) all[mi] = { entrateCarta: '', entrateContanti: '', cats: {} };
   if (!all[mi].cats) all[mi].cats = {};
   // migrate old single-field entrate
   if (all[mi].entrate !== undefined) {
@@ -567,7 +551,6 @@ function renderSpese() {
 
   document.getElementById('inp-entrate-carta').value    = data.entrateCarta    || '';
   document.getElementById('inp-entrate-contanti').value = data.entrateContanti || '';
-  document.getElementById('inp-budget').value           = data.budget          || '';
 
   // categories
   const container = document.getElementById('categories-container');
@@ -726,7 +709,7 @@ function saveAndRefresh() {
   const data = getMonthData(currentMonth);
   data.entrateCarta    = document.getElementById('inp-entrate-carta').value;
   data.entrateContanti = document.getElementById('inp-entrate-contanti').value;
-  data.budget          = document.getElementById('inp-budget').value;
+
   setMonthData(currentMonth, data);
 
   // global saldo iniziale
@@ -759,7 +742,6 @@ function refreshTotals() {
   const entrateCarta   = val(data.entrateCarta);
   const entrateContan  = val(data.entrateContanti);
   const entrate        = entrateCarta + entrateContan;
-  const budget         = val(data.budget);
   const saldo          = entrate - tot;
 
   const totEl = document.getElementById('sum-entrate-tot');
@@ -772,13 +754,6 @@ function refreshTotals() {
   saldoEl.textContent = fmt(saldo);
   saldoEl.className   = 'stat-val ' + (saldo >= 0 ? 'accent' : 'danger');
 
-  // budget bar
-  const pct = budget > 0 ? Math.min((tot / budget) * 100, 100) : 0;
-  const bar = document.getElementById('budget-bar');
-  bar.style.width = pct + '%';
-  bar.className   = 'progress-bar-fill' + (tot > budget && budget > 0 ? ' over' : '');
-  document.getElementById('budget-pct').textContent    = Math.round(pct) + '%';
-  document.getElementById('budget-status').textContent = (tot > budget && budget > 0) ? '⚠ budget superato' : 'nei limiti';
 }
 
 // ── RENDER BANCA ──────────────────────────────────────────────────────

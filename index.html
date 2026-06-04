@@ -528,8 +528,8 @@ function monthTotals(mi) {
   const m = getMonth(mi);
   let carta = 0, cont = 0;
   m.voci.forEach(vo => {
-    if (vo.tipo === 'carta') carta += v(vo.amount);
-    else cont += v(vo.amount);
+    if (vo.tipo === 'carta') carta += Math.abs(v(vo.amount));
+    else cont += Math.abs(v(vo.amount));
   });
   return { carta, cont, ec: v(m.ec), ecc: v(m.ecc) };
 }
@@ -577,12 +577,12 @@ function renderCats() {
   const cnt = document.getElementById('cats-container');
   cnt.innerHTML = CATS.map((cat, ci) => {
     const voci = m.voci.filter(vo => vo.cat === cat);
-    const tot  = voci.reduce((s, vo) => s + v(vo.amount), 0);
+    const tot  = voci.reduce((s, vo) => s + Math.abs(v(vo.amount)), 0);
     return `
       <div class="cat-row" id="cat-${ci}">
         <div class="cat-header" onclick="toggleCat(${ci})">
           <span class="cat-name">${cat}</span>
-          <span class="cat-total" id="ct-${ci}">${tot !== 0 ? fmt(tot) : ''}</span>
+          <span class="cat-total" id="ct-${ci}" style="color:var(--danger)">${tot > 0 ? '−€' + tot.toString().replace('.',',') : ''}</span>
           <span class="cat-arrow" id="ca-${ci}">›</span>
         </div>
         <div class="cat-body" id="cb-${ci}">
@@ -596,14 +596,14 @@ function renderCats() {
 function renderVociHTML(voci, ci) {
   if (!voci.length) return '<div class="voce-empty">Nessuna voce</div>';
   return voci.map((vo, localIdx) => {
-    const isNeg = v(vo.amount) < 0;
-    const dispAmount = fmtRaw(vo.amount);
+    const amt = Math.abs(v(vo.amount));
+    const disp = '−€' + amt.toString().replace('.',',');
     return `
       <div class="voce-item" id="vi-${ci}-${localIdx}">
         <div class="voce-info">
           <div class="voce-desc-text${vo.desc?'':' empty'}">${vo.desc || 'senza descrizione'}</div>
           <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
-            <span class="voce-amount${isNeg?' neg-val':''}">${dispAmount}</span>
+            <span class="voce-amount neg-val">${disp}</span>
             <span class="voce-badge ${vo.tipo==='carta'?'badge-carta':'badge-contanti'}">${vo.tipo==='carta'?'💳 carta':'💵 contanti'}</span>
           </div>
         </div>
@@ -619,11 +619,11 @@ function refreshVociBlock(ci) {
   const m    = getMonth(curMonth);
   const cat  = CATS[ci];
   const voci = m.voci.filter(vo => vo.cat === cat);
-  const tot  = voci.reduce((s, vo) => s + v(vo.amount), 0);
+  const tot  = voci.reduce((s, vo) => s + Math.abs(v(vo.amount)), 0);
   const el   = document.getElementById(`voci-${ci}`);
   if (el) el.innerHTML = renderVociHTML(voci, ci);
   const ct = document.getElementById(`ct-${ci}`);
-  if (ct) ct.textContent = tot !== 0 ? fmt(tot) : '';
+  if (ct) ct.textContent = tot > 0 ? '−€' + tot.toString().replace('.',',') : '';
   refreshTotals();
 }
 
@@ -647,12 +647,11 @@ function editVoce(ci, localIdx) {
   const vo  = voci[localIdx];
   if (!vo) return;
 
-  const isNeg  = v(vo.amount) < 0;
   const tipoCls = vo.tipo === 'carta' ? 'tipo-carta' : 'tipo-cash';
   const tipoLbl = vo.tipo === 'carta' ? '💳 Carta' : '💵 Contanti';
   const rawAmt  = String(Math.abs(v(vo.amount)));
 
-  formState = { ci, tipo: vo.tipo, neg: isNeg, editIdx: localIdx };
+  formState = { ci, tipo: vo.tipo, neg: false, editIdx: localIdx };
 
   const form = document.createElement('div');
   form.className = 'add-voce-form';
@@ -660,7 +659,6 @@ function editVoce(ci, localIdx) {
   form.innerHTML = `
     <input type="text" id="f-desc" placeholder="Descrizione (opzionale)" value="${(vo.desc||'').replace(/"/g,'&quot;')}">
     <div class="add-form-row">
-      <button class="sign-btn${isNeg?' neg':''}" id="f-sign" onclick="toggleFormSign(${ci})">${isNeg?'−':'+'}</button>
       <div class="amount-wrap">
         <span class="cur">€</span>
         <input type="text" inputmode="decimal" id="f-amount" placeholder="0.00" value="${rawAmt}">
@@ -706,7 +704,6 @@ function showAddForm(ci) {
   form.innerHTML = `
     <input type="text" id="f-desc" placeholder="Descrizione (opzionale)">
     <div class="add-form-row">
-      <button class="sign-btn" id="f-sign" onclick="toggleFormSign(${ci})">+</button>
       <div class="amount-wrap">
         <span class="cur">€</span>
         <input type="text" inputmode="decimal" id="f-amount" placeholder="0.00">
@@ -748,9 +745,8 @@ function confirmVoce(ci) {
 
   const desc   = descEl.value.trim();
   const rawAmt = amountEl.value.trim();
-  let   amount = v(rawAmt);
-  if (amount === 0 && rawAmt === '') { amountEl.focus(); return; }
-  if (formState.neg) amount = -Math.abs(amount);
+  const amount = Math.abs(v(rawAmt));
+  if (amount === 0) { amountEl.focus(); return; }
   const amountStr = String(amount);
 
   const m   = getMonth(curMonth);

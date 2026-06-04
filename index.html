@@ -517,7 +517,14 @@ function fmt(n) {
   return n < 0 ? '−' + s : s;
 }
 
-function monthTotals(mi) {
+function fmtRaw(s) {
+  const n = v(s);
+  const raw = String(s||'').replace(',','.');
+  const prefix = n < 0 ? '−€' : '€';
+  return prefix + Math.abs(parseFloat(raw)||0).toString().replace('.',',');
+}
+
+
   const m = getMonth(mi);
   let carta = 0, cont = 0;
   m.voci.forEach(vo => {
@@ -591,16 +598,20 @@ function renderVociHTML(voci, ci) {
   if (!voci.length) return '<div class="voce-empty">Nessuna voce</div>';
   return voci.map((vo, localIdx) => {
     const isNeg = v(vo.amount) < 0;
+    const dispAmount = fmtRaw(vo.amount);
     return `
-      <div class="voce-item">
+      <div class="voce-item" id="vi-${ci}-${localIdx}">
         <div class="voce-info">
           <div class="voce-desc-text${vo.desc?'':' empty'}">${vo.desc || 'senza descrizione'}</div>
           <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
-            <span class="voce-amount${isNeg?' neg-val':''}">${fmt(v(vo.amount))}</span>
+            <span class="voce-amount${isNeg?' neg-val':''}">${dispAmount}</span>
             <span class="voce-badge ${vo.tipo==='carta'?'badge-carta':'badge-contanti'}">${vo.tipo==='carta'?'💳 carta':'💵 contanti'}</span>
           </div>
         </div>
-        <button class="voce-del" onclick="deleteVoce(${ci},${localIdx})">🗑</button>
+        <div style="display:flex;gap:4px">
+          <button class="voce-del" style="color:var(--muted)" onclick="editVoce(${ci},${localIdx})">✏️</button>
+          <button class="voce-del" onclick="deleteVoce(${ci},${localIdx})">🗑</button>
+        </div>
       </div>`;
   }).join('');
 }
@@ -626,7 +637,55 @@ function toggleCat(ci) {
 }
 
 // ── ADD FORM ──────────────────────────────────────────────────────────────
-let formState = { ci: -1, tipo: 'carta', neg: false };
+let formState = { ci: -1, tipo: 'carta', neg: false, editIdx: -1 };
+
+function editVoce(ci, localIdx) {
+  document.querySelectorAll('.add-voce-form').forEach(f => f.remove());
+
+  const m   = getMonth(curMonth);
+  const cat = CATS[ci];
+  const voci = m.voci.filter(vo => vo.cat === cat);
+  const vo  = voci[localIdx];
+  if (!vo) return;
+
+  const isNeg  = v(vo.amount) < 0;
+  const tipoCls = vo.tipo === 'carta' ? 'tipo-carta' : 'tipo-cash';
+  const tipoLbl = vo.tipo === 'carta' ? '💳 Carta' : '💵 Contanti';
+  const rawAmt  = String(Math.abs(v(vo.amount)));
+
+  formState = { ci, tipo: vo.tipo, neg: isNeg, editIdx: localIdx };
+
+  const form = document.createElement('div');
+  form.className = 'add-voce-form';
+  form.id = 'form-' + ci;
+  form.innerHTML = `
+    <input type="text" id="f-desc" placeholder="Descrizione (opzionale)" value="${(vo.desc||'').replace(/"/g,'&quot;')}">
+    <div class="add-form-row">
+      <button class="sign-btn${isNeg?' neg':''}" id="f-sign" onclick="toggleFormSign(${ci})">${isNeg?'−':'+'}</button>
+      <div class="amount-wrap">
+        <span class="cur">€</span>
+        <input type="text" inputmode="decimal" id="f-amount" placeholder="0.00" value="${rawAmt}">
+      </div>
+      <button class="tipo-toggle ${tipoCls}" id="f-tipo" onclick="toggleFormTipo(${ci})">${tipoLbl}</button>
+    </div>
+    <div class="form-actions">
+      <button class="btn-confirm" onclick="confirmVoce(${ci})">✓ Salva</button>
+      <button class="btn-cancel"  onclick="cancelEdit(${ci},${localIdx})">✕</button>
+    </div>`;
+
+  const voceEl = document.getElementById(`vi-${ci}-${localIdx}`);
+  if (voceEl) voceEl.replaceWith(form);
+  else {
+    const body = document.getElementById(`cb-${ci}`);
+    body.insertBefore(form, body.querySelector('.btn-add-voce'));
+  }
+  setTimeout(() => document.getElementById('f-amount')?.focus(), 50);
+}
+
+function cancelEdit(ci, localIdx) {
+  formState.editIdx = -1;
+  refreshVociBlock(ci);
+}
 
 function showAddForm(ci) {
   // close any existing form
@@ -640,7 +699,7 @@ function showAddForm(ci) {
     arrow.textContent = '⌄';
   }
 
-  formState = { ci, tipo: 'carta', neg: false };
+  formState = { ci, tipo: 'carta', neg: false, editIdx: -1 };
 
   const form = document.createElement('div');
   form.className = 'add-voce-form';
@@ -689,14 +748,31 @@ function confirmVoce(ci) {
   if (!descEl || !amountEl) return;
 
   const desc   = descEl.value.trim();
-  let   amount = v(amountEl.value);
-  if (amount === 0) { amountEl.focus(); return; }
+  const rawAmt = amountEl.value.trim();
+  let   amount = v(rawAmt);
+  if (amount === 0 && rawAmt === '') { amountEl.focus(); return; }
   if (formState.neg) amount = -Math.abs(amount);
+  const amountStr = String(amount);
 
-  const m = getMonth(curMonth);
-  m.voci.push({ cat: CATS[ci], desc, amount: String(amount), tipo: formState.tipo });
+  const m   = getMonth(curMonth);
+  const cat = CATS[ci];
+
+  if (formState.editIdx >= 0) {
+    let count = 0;
+    m.voci.forEach((vo, i) => {
+      if (vo.cat === cat) {
+        if (count === formState.editIdx) {
+          m.voci[i] = { cat, desc, amount: amountStr, tipo: formState.tipo };
+        }
+        count++;
+      }
+    });
+  } else {
+    m.voci.push({ cat, desc, amount: amountStr, tipo: formState.tipo });
+  }
+
   setMonth(curMonth, m);
-
+  formState.editIdx = -1;
   cancelForm(ci);
   refreshVociBlock(ci);
   showToast();

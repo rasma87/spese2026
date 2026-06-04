@@ -341,9 +341,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text);
 
 <!-- TABS desktop -->
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('spese')">📝 Spese</div>
-  <div class="tab"        onclick="switchTab('banca')">🏦 Banca</div>
-  <div class="tab"        onclick="switchTab('riepilogo')">📊 Riepilogo</div>
+  <div class="tab active" id="dtab-spese"     onclick="switchTab('spese')">📝 Spese</div>
+  <div class="tab"        id="dtab-banca"     onclick="switchTab('banca')">🏦 Banca</div>
+  <div class="tab"        id="dtab-riepilogo" onclick="switchTab('riepilogo')">📊 Riepilogo</div>
 </div>
 
 <div class="content">
@@ -536,12 +536,11 @@ function monthTotals(mi) {
 
 // ── TABS ──────────────────────────────────────────────────────────────────
 function switchTab(tab) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
-  document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
-  document.getElementById('nav-' + tab).classList.add('active');
+  ['spese','banca','riepilogo'].forEach(t => {
+    document.getElementById('tab-'  + t)?.classList.toggle('active', t === tab);
+    document.getElementById('nav-'  + t)?.classList.toggle('active', t === tab);
+    document.getElementById('dtab-' + t)?.classList.toggle('active', t === tab);
+  });
   if (tab === 'banca')     renderBanca();
   if (tab === 'riepilogo') renderRiepilogo();
 }

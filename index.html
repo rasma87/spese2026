@@ -524,7 +524,7 @@ function fmtRaw(s) {
   return prefix + Math.abs(parseFloat(raw)||0).toString().replace('.',',');
 }
 
-
+function monthTotals(mi) {
   const m = getMonth(mi);
   let carta = 0, cont = 0;
   m.voci.forEach(vo => {

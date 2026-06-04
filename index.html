@@ -9,44 +9,39 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Spese 2026">
 <title>Spese 2026</title>
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg:        #0f1923;
-  --bg2:       #162030;
-  --bg3:       #1e2d3d;
-  --border:    #2a3f55;
-  --accent:    #00d4aa;
-  --accent2:   #3b82f6;
-  --card:      #2264cc;
-  --cash:      #d97706;
-  --danger:    #ef4444;
-  --text:      #e8f0f8;
-  --muted:     #7a9ab8;
-  --radius:    14px;
-  --font:      'Sora', sans-serif;
-  --mono:      'DM Mono', monospace;
-  --safe-top:  env(safe-area-inset-top, 0px);
-  --safe-bot:  env(safe-area-inset-bottom, 0px);
+  --bg:      #0f1923;
+  --bg2:     #162030;
+  --bg3:     #1e2d3d;
+  --border:  #2a3f55;
+  --accent:  #00d4aa;
+  --accent2: #3b82f6;
+  --cash:    #d97706;
+  --danger:  #ef4444;
+  --text:    #e8f0f8;
+  --muted:   #7a9ab8;
+  --radius:  14px;
+  --font:    'Sora', sans-serif;
+  --mono:    'DM Mono', monospace;
+  --stop:    env(safe-area-inset-top, 0px);
+  --sbot:    env(safe-area-inset-bottom, 0px);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+* { box-sizing: border-box; margin: 0; padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation; }
 
-body {
-  font-family: var(--font);
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100dvh;
-  overflow-x: hidden;
-}
+body { font-family: var(--font); background: var(--bg); color: var(--text);
+       min-height: 100dvh; overflow-x: hidden; }
 
-/* ── TOP BAR ── */
+/* TOP BAR */
 .topbar {
   position: sticky; top: 0; z-index: 100;
   background: var(--bg);
-  padding: calc(var(--safe-top) + 12px) 20px 12px;
+  padding: calc(var(--stop) + 12px) 20px 12px;
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
 }
@@ -59,7 +54,7 @@ body {
   cursor: pointer; display: flex; align-items: center; gap: 6px;
 }
 
-/* ── TABS ── */
+/* TABS */
 .tabs {
   display: grid; grid-template-columns: repeat(3, 1fr);
   background: var(--bg2); border-bottom: 1px solid var(--border);
@@ -71,14 +66,16 @@ body {
   transition: all .2s; letter-spacing: .03em; text-transform: uppercase;
 }
 .tab.active { color: var(--accent); border-color: var(--accent); }
-
-/* nasconde le tab in alto su mobile (la bottom nav è sufficiente) */
 @media (max-width: 640px) { .tabs { display: none; } }
 
-/* ── CONTENT ── */
-.content { padding: 16px 16px calc(80px + var(--safe-bot)); }
+/* CONTENT */
+.content { padding: 16px 16px calc(80px + var(--sbot)); }
 
-/* ── CARDS ── */
+/* SECTION */
+.section { display: none; }
+.section.active { display: block; }
+
+/* CARDS */
 .card {
   background: var(--bg2); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
@@ -88,19 +85,7 @@ body {
   text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px;
 }
 
-/* ── BIG SALDO ── */
-.saldo-box {
-  background: linear-gradient(135deg, #0f2a1e 0%, #0a1f35 100%);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius); padding: 20px; margin-bottom: 12px;
-  text-align: center;
-}
-.saldo-label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
-.saldo-value { font-family: var(--mono); font-size: 2.4rem; font-weight: 500; color: var(--accent); line-height: 1; }
-.saldo-value.negative { color: var(--danger); }
-.saldo-status { font-size: .78rem; margin-top: 8px; color: var(--muted); }
-
-/* ── STAT GRID ── */
+/* STAT GRID */
 .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
 .stat {
   background: var(--bg2); border: 1px solid var(--border);
@@ -114,38 +99,13 @@ body {
 .stat-val.accent { color: var(--accent); }
 .stat-val.danger { color: var(--danger); }
 
-/* ── INPUT ROWS ── */
-.input-section { margin-bottom: 8px; }
-.input-label {
-  font-size: .68rem; font-weight: 600; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .08em;
-  padding: 10px 0 6px; display: flex; align-items: center; gap: 6px;
-}
-.input-label .dot { width: 6px; height: 6px; border-radius: 50%; }
-.dot-card { background: var(--accent2); }
-.dot-cash { background: var(--cash); }
-.dot-prev { background: var(--muted); }
-
-.category-row {
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 10px; margin-bottom: 6px; overflow: hidden;
-}
-.cat-header {
-  padding: 10px 14px; font-size: .88rem; font-weight: 600;
-  display: flex; align-items: center; justify-content: space-between;
-  cursor: pointer; min-height: 48px;
-}
-.cat-name { flex: 1; }
-.cat-total { font-family: var(--mono); font-size: .88rem; color: var(--accent); }
-.cat-body { display: none; padding: 0 14px 12px; }
-.cat-body.open { display: block; }
-
+/* INPUT */
 .input-group { margin-top: 10px; }
 .input-group label { font-size: .7rem; color: var(--muted); display: block; margin-bottom: 4px; }
 .input-wrap { position: relative; }
-.input-wrap .currency {
+.input-wrap .cur {
   position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-  color: var(--muted); font-family: var(--mono); font-size: .9rem;
+  color: var(--muted); font-family: var(--mono); font-size: .9rem; pointer-events: none;
 }
 .input-wrap input {
   width: 100%; background: var(--bg3); border: 1px solid var(--border);
@@ -155,51 +115,152 @@ body {
   -webkit-appearance: none; appearance: none;
 }
 .input-wrap input:focus { border-color: var(--accent2); }
-.input-wrap.card input:focus { border-color: var(--accent2); }
-.input-wrap.cash input:focus { border-color: var(--cash); }
+.input-wrap.card-wrap input:focus { border-color: var(--accent2); }
+.input-wrap.cash-wrap input:focus { border-color: var(--cash); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
-.inline-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-
-.voci-list { margin-top: 6px; }
-.voce-empty { font-size: .78rem; color: var(--muted); padding: 6px 0; }
-.voce-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 8px; margin-bottom: 6px; }
-.voce-desc { width: 100%; background: transparent; border: none; outline: none; color: var(--text); font-family: var(--font); font-size: .88rem; padding: 0 0 6px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
-.voce-desc::placeholder { color: var(--muted); }
-.voce-row { display: flex; align-items: center; gap: 6px; }
-.voce-wrap { flex: 1; position: relative; }
-.voce-wrap input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 8px 8px 24px; color: var(--text); font-family: var(--mono); font-size: .9rem; outline: none; -webkit-appearance: none; appearance: none; }
-.voce-wrap .currency { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--muted); font-family: var(--mono); font-size: .82rem; }
-.tipo-btn { border: none; border-radius: 6px; padding: 8px 10px; font-size: .78rem; font-weight: 600; cursor: pointer; white-space: nowrap; min-height: 36px; }
-.tipo-carta { background: rgba(59,130,246,.18); color: var(--accent2); border: 1px solid rgba(59,130,246,.35); }
-.tipo-cash { background: rgba(217,119,6,.18); color: var(--cash); border: 1px solid rgba(217,119,6,.35); }
-.voce-del { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25); border-radius: 6px; color: var(--danger); font-size: .9rem; cursor: pointer; padding: 0 10px; min-height: 36px; min-width: 36px; }
-.sign-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: var(--mono); font-size: 1rem; font-weight: 700; cursor: pointer; min-height: 36px; min-width: 36px; padding: 0 6px; }
-.sign-btn.negative { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.4); color: var(--danger); }
-.btn-add-voce { width: 100%; margin-top: 10px; background: transparent; border: 1px dashed var(--border); border-radius: 8px; color: var(--accent); font-size: .82rem; font-weight: 600; padding: 10px; cursor: pointer; }
-
-/* ── MONTH MODAL ── */
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.7);
-  z-index: 200; display: none; align-items: flex-end;
+/* SALDO BOX */
+.saldo-box {
+  background: linear-gradient(135deg, #0f2a1e 0%, #0a1f35 100%);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius); padding: 20px; margin-bottom: 12px; text-align: center;
 }
-.modal-overlay.open { display: flex; }
-.modal {
-  background: var(--bg2); border-radius: 20px 20px 0 0;
-  padding: 24px 20px calc(20px + var(--safe-bot));
-  width: 100%;
-}
-.modal h3 { font-size: 1rem; margin-bottom: 16px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
-.month-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.month-btn {
+.saldo-label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+.saldo-value { font-family: var(--mono); font-size: 2.4rem; font-weight: 500; color: var(--accent); line-height: 1; }
+.saldo-value.neg { color: var(--danger); }
+.saldo-status { font-size: .78rem; margin-top: 8px; color: var(--muted); }
+
+/* SALDO INIT */
+.saldo-init-row {
+  display: flex; align-items: center; justify-content: space-between;
   background: var(--bg3); border: 1px solid var(--border);
-  border-radius: 10px; padding: 14px 8px; text-align: center;
-  font-size: .88rem; font-weight: 600; cursor: pointer; transition: all .2s;
-  min-height: 48px;
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px;
 }
-.month-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
-.modal-close { display: block; text-align: center; margin-top: 16px; color: var(--muted); font-size: .9rem; cursor: pointer; }
+.saldo-init-label { font-size: .8rem; color: var(--muted); }
+.saldo-init-input {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; outline: none; padding: 10px 12px 10px 28px;
+  font-family: var(--mono); font-size: 1rem; color: var(--accent);
+  text-align: right; width: 130px;
+  -webkit-appearance: none; appearance: none;
+}
 
-/* ── RIEPILOGO TABLE ── */
+/* SIGN BUTTON */
+.sign-btn {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--muted);
+  font-family: var(--mono); font-size: 1.1rem; font-weight: 700;
+  cursor: pointer; min-height: 40px; min-width: 40px; padding: 0 8px;
+  transition: all .15s;
+}
+.sign-btn.neg { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.4); color: var(--danger); }
+
+/* CATEGORY ROWS */
+.cat-row {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; margin-bottom: 6px; overflow: hidden;
+}
+.cat-header {
+  padding: 10px 14px; font-size: .88rem; font-weight: 600;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; min-height: 48px; user-select: none;
+}
+.cat-name { flex: 1; }
+.cat-total { font-family: var(--mono); font-size: .88rem; color: var(--accent); }
+.cat-arrow { color: var(--muted); margin-left: 8px; font-size: .8rem; transition: transform .2s; }
+.cat-body { display: none; padding: 0 10px 10px; }
+.cat-body.open { display: block; }
+
+/* VOCE ITEMS */
+.voce-item {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 10px; margin-bottom: 5px;
+  display: flex; align-items: center; gap: 8px;
+}
+.voce-info { flex: 1; min-width: 0; }
+.voce-desc-text { font-size: .82rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.voce-desc-text.empty { color: var(--muted); font-style: italic; }
+.voce-amount { font-family: var(--mono); font-size: .88rem; font-weight: 500; }
+.voce-amount.neg-val { color: var(--danger); }
+.voce-badge {
+  font-size: .65rem; font-weight: 700; border-radius: 4px;
+  padding: 2px 5px; white-space: nowrap;
+}
+.badge-carta { background: rgba(59,130,246,.2); color: var(--accent2); border: 1px solid rgba(59,130,246,.3); }
+.badge-contanti { background: rgba(217,119,6,.2); color: var(--cash); border: 1px solid rgba(217,119,6,.3); }
+.voce-del {
+  background: transparent; border: none; color: var(--muted);
+  font-size: 1rem; cursor: pointer; padding: 4px 6px; line-height: 1;
+  border-radius: 4px; flex-shrink: 0;
+}
+.voce-del:active { color: var(--danger); }
+.voce-empty { font-size: .78rem; color: var(--muted); padding: 6px 2px; }
+
+/* ADD VOCE FORM */
+.add-voce-form {
+  background: var(--bg3); border: 1px solid var(--accent2);
+  border-radius: 8px; padding: 10px; margin-bottom: 5px; margin-top: 4px;
+}
+.add-voce-form input[type="text"] {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 9px 10px; color: var(--text);
+  font-family: var(--font); font-size: .88rem; outline: none; margin-bottom: 8px;
+  -webkit-appearance: none;
+}
+.add-voce-form input[type="text"]::placeholder { color: var(--muted); }
+.add-voce-form input[type="text"]:focus { border-color: var(--accent2); }
+.add-form-row { display: flex; gap: 6px; align-items: center; }
+.amount-wrap { flex: 1; position: relative; }
+.amount-wrap .cur {
+  position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+  color: var(--muted); font-family: var(--mono); font-size: .82rem; pointer-events: none;
+}
+.amount-wrap input {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 9px 8px 9px 22px;
+  color: var(--text); font-family: var(--mono); font-size: .95rem;
+  outline: none; -webkit-appearance: none; appearance: none;
+}
+.amount-wrap input:focus { border-color: var(--accent2); }
+.tipo-toggle {
+  border: none; border-radius: 6px; padding: 0 10px;
+  font-size: .75rem; font-weight: 700; cursor: pointer;
+  white-space: nowrap; min-height: 38px;
+}
+.tipo-carta { background: rgba(59,130,246,.18); color: var(--accent2); border: 1px solid rgba(59,130,246,.35) !important; }
+.tipo-cash  { background: rgba(217,119,6,.18);  color: var(--cash);    border: 1px solid rgba(217,119,6,.35)  !important; }
+.form-actions { display: flex; gap: 6px; margin-top: 8px; }
+.btn-confirm {
+  flex: 1; background: var(--accent); color: var(--bg);
+  border: none; border-radius: 6px; padding: 10px;
+  font-size: .85rem; font-weight: 700; cursor: pointer;
+}
+.btn-cancel {
+  background: var(--bg3); color: var(--muted);
+  border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px;
+  font-size: .85rem; cursor: pointer;
+}
+.btn-add-voce {
+  width: 100%; margin-top: 6px; background: transparent;
+  border: 1px dashed var(--border); border-radius: 8px;
+  color: var(--accent); font-size: .82rem; font-weight: 600;
+  padding: 10px; cursor: pointer;
+}
+
+/* BANCA TABLE */
+.banca-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.banca-row:last-child { border-bottom: none; }
+.banca-month { font-weight: 600; font-size: .9rem; }
+.banca-right { text-align: right; }
+.banca-saldo { font-family: var(--mono); font-size: 1rem; font-weight: 500; }
+.banca-saldo.pos { color: var(--accent); }
+.banca-saldo.neg-c { color: var(--danger); }
+.banca-detail { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+/* RIEPILOGO */
 .riepilogo-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .riepilogo-table th {
   font-size: .65rem; text-transform: uppercase; letter-spacing: .06em;
@@ -210,25 +271,12 @@ body {
 .riepilogo-table td:not(:first-child) { text-align: right; font-family: var(--mono); font-size: .82rem; }
 .riepilogo-table tr:last-child td { font-weight: 700; color: var(--accent); border-top: 2px solid var(--border); }
 
-/* ── BANCA TABLE ── */
-.banca-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 12px 0; border-bottom: 1px solid var(--border);
-}
-.banca-row:last-child { border-bottom: none; }
-.banca-month { font-weight: 600; font-size: .9rem; }
-.banca-right { text-align: right; }
-.banca-saldo { font-family: var(--mono); font-size: 1rem; font-weight: 500; }
-.banca-saldo.pos { color: var(--accent); }
-.banca-saldo.neg { color: var(--danger); }
-.banca-detail { font-size: .7rem; color: var(--muted); margin-top: 2px; }
-
-/* ── BOTTOM NAV ── */
+/* BOTTOM NAV */
 .bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0;
   background: var(--bg2); border-top: 1px solid var(--border);
   display: grid; grid-template-columns: repeat(3, 1fr);
-  padding-bottom: var(--safe-bot); z-index: 100;
+  padding-bottom: var(--sbot); z-index: 100;
 }
 .nav-btn {
   padding: 10px 4px; text-align: center; cursor: pointer;
@@ -240,27 +288,30 @@ body {
 .nav-btn.active { color: var(--accent); }
 .nav-icon { font-size: 1.4rem; line-height: 1; }
 
-/* ── SECTION HIDDEN ── */
-.section { display: none; }
-.section.active { display: block; }
-
-/* ── SALDO INIZIALE ── */
-.saldo-init-row {
-  display: flex; align-items: center; justify-content: space-between;
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px;
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.7);
+  z-index: 200; display: none; align-items: flex-end;
 }
-.saldo-init-label { font-size: .8rem; color: var(--muted); }
-.saldo-init-input {
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: 8px; outline: none; padding: 10px 12px 10px 28px;
-  font-family: var(--mono); font-size: 1rem; color: var(--accent);
-  text-align: right; width: 150px; -webkit-appearance: none; appearance: none;
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg2); border-radius: 20px 20px 0 0;
+  padding: 24px 20px calc(20px + var(--sbot)); width: 100%;
 }
+.modal h3 { font-size: 1rem; margin-bottom: 16px; color: var(--muted);
+            text-transform: uppercase; letter-spacing: .08em; }
+.month-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.month-btn {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 8px; text-align: center;
+  font-size: .88rem; font-weight: 600; cursor: pointer; min-height: 48px;
+}
+.month-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.modal-close { display: block; text-align: center; margin-top: 16px; color: var(--muted); font-size: .9rem; cursor: pointer; }
 
-/* ── TOAST ── */
+/* TOAST */
 .toast {
-  position: fixed; bottom: calc(70px + var(--safe-bot) + 10px); left: 50%;
+  position: fixed; bottom: calc(70px + var(--sbot) + 10px); left: 50%;
   transform: translateX(-50%) translateY(20px);
   background: var(--accent); color: var(--bg);
   padding: 10px 20px; border-radius: 20px;
@@ -270,30 +321,13 @@ body {
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-
+/* section label */
+.sec-label {
+  font-size: .68rem; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .08em;
+  padding: 10px 0 6px; display: flex; align-items: center; gap: 6px;
+}
 </style>
-<script>
-(function(){
-  const manifest = {
-    name: 'Spese 2026',
-    short_name: 'Spese',
-    description: 'Tracker spese mensili',
-    start_url: '.',
-    display: 'standalone',
-    background_color: '#0f1923',
-    theme_color: '#0f1923',
-    icons: [{
-      src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6QMCCwkV7TATAAAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAABbklEQVR42u3BMQEAAADCoPVP7WsIoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeAMBuAABHgAAAABJRU5ErkJggg==",
-      sizes: '192x192', type: 'image/png'
-    }]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('link');
-  link.rel = 'manifest'; link.href = url;
-  document.head.appendChild(link);
-})();
-</script>
 </head>
 <body>
 
@@ -301,54 +335,54 @@ body {
 <div class="topbar">
   <h1>Spese <span>2026</span></h1>
   <div class="month-pill" onclick="openMonthModal()">
-    <span id="currentMonthLabel">Giugno</span> ▾
+    <span id="lblMese">Giugno</span> ▾
   </div>
 </div>
 
-<!-- TABS (desktop-style, synced with bottom nav) -->
+<!-- TABS desktop -->
 <div class="tabs">
   <div class="tab active" onclick="switchTab('spese')">📝 Spese</div>
-  <div class="tab" onclick="switchTab('banca')">🏦 Banca</div>
-  <div class="tab" onclick="switchTab('riepilogo')">📊 Riepilogo</div>
+  <div class="tab"        onclick="switchTab('banca')">🏦 Banca</div>
+  <div class="tab"        onclick="switchTab('riepilogo')">📊 Riepilogo</div>
 </div>
 
 <div class="content">
 
-  <!-- ══ TAB: SPESE ══ -->
+  <!-- ══ SPESE ══ -->
   <div class="section active" id="tab-spese">
 
-    <!-- Entrate + Budget -->
-    <div class="stat-grid">
-      <div class="stat full">
-        <div class="stat-label">💰 Entrate &nbsp;<span id="sum-entrate-tot" style="font-family:var(--mono);color:var(--accent);font-size:.85rem"></span></div>
-        <div class="inline-inputs">
-          <div class="input-group">
-            <label>💳 Carta</label>
-            <div class="input-wrap card">
-              <span class="currency">€</span>
-              <input type="number" inputmode="decimal" id="inp-entrate-carta" placeholder="0.00" oninput="saveAndRefresh()" onchange="saveAndRefresh()">
-            </div>
+    <!-- Entrate -->
+    <div class="stat full card">
+      <div class="stat-label">💰 Entrate &nbsp;<span id="sum-entrate-tot" style="font-family:var(--mono);color:var(--accent);font-size:.85rem"></span></div>
+      <div class="grid2">
+        <div class="input-group">
+          <label>💳 Carta</label>
+          <div class="input-wrap card-wrap">
+            <span class="cur">€</span>
+            <input type="text" inputmode="decimal" id="inp-ec" placeholder="0.00"
+              oninput="saveEntrate()" onchange="saveEntrate()">
           </div>
-          <div class="input-group">
-            <label>💵 Contanti</label>
-            <div class="input-wrap cash">
-              <span class="currency">€</span>
-              <input type="number" inputmode="decimal" id="inp-entrate-contanti" placeholder="0.00" oninput="saveAndRefresh()" onchange="saveAndRefresh()">
-            </div>
+        </div>
+        <div class="input-group">
+          <label>💵 Contanti</label>
+          <div class="input-wrap cash-wrap">
+            <span class="cur">€</span>
+            <input type="text" inputmode="decimal" id="inp-ecc" placeholder="0.00"
+              oninput="saveEntrate()" onchange="saveEntrate()">
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Riepilogo mese -->
+    <!-- Totali mese -->
     <div class="stat-grid">
       <div class="stat">
-        <div class="stat-label">💳 Carta</div>
+        <div class="stat-label">💳 Spese carta</div>
         <div class="stat-val card-color" id="sum-carta">€0,00</div>
       </div>
       <div class="stat">
-        <div class="stat-label">💵 Contanti</div>
-        <div class="stat-val cash-color" id="sum-contanti">€0,00</div>
+        <div class="stat-label">💵 Spese contanti</div>
+        <div class="stat-val cash-color" id="sum-cont">€0,00</div>
       </div>
       <div class="stat full">
         <div class="stat-label">Totale spese</div>
@@ -361,60 +395,53 @@ body {
     </div>
 
     <!-- Categorie -->
-    <div class="input-label">
-      <span class="dot dot-prev"></span> Voci di spesa
-    </div>
-    <div id="categories-container"></div>
+    <div class="sec-label">Voci di spesa</div>
+    <div id="cats-container"></div>
 
   </div>
 
-  <!-- ══ TAB: BANCA ══ -->
+  <!-- ══ BANCA ══ -->
   <div class="section" id="tab-banca">
 
     <div class="saldo-init-row">
       <div>
-        <div class="stat-label">Saldo iniziale al 1° Giugno</div>
-        <div style="font-size:.72rem;color:var(--muted);margin-top:2px;">modifica se cambia</div>
+        <div class="stat-label">Saldo iniziale al 1° Gennaio</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px">modifica se cambia</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
-        <button class="sign-btn" id="btn-saldo-sign" onclick="toggleSaldoSign()">+</button>
+        <button class="sign-btn" id="btn-si-sign" onclick="toggleSaldoSign()">+</button>
         <div class="input-wrap" style="width:130px">
-          <span class="currency">€</span>
-          <input type="text" inputmode="decimal" class="saldo-init-input" id="inp-saldo-iniziale" placeholder="0.00" oninput="saveAndRefresh()">
+          <span class="cur">€</span>
+          <input type="text" inputmode="decimal" class="saldo-init-input"
+            id="inp-si" placeholder="0.00"
+            oninput="saveSaldoIniziale()" onchange="saveSaldoIniziale()">
         </div>
       </div>
     </div>
 
-    <!-- Saldo attuale -->
     <div class="saldo-box">
       <div class="saldo-label">Saldo attuale stimato</div>
-      <div class="saldo-value" id="banca-saldo-attuale">€0,00</div>
+      <div class="saldo-value" id="banca-saldo">€0,00</div>
       <div class="saldo-status" id="banca-status">—</div>
     </div>
 
-    <!-- Mesi -->
     <div class="card">
-      <div class="card-title">Storico mensile</div>
+      <div class="card-title">Storico mensile (solo carta)</div>
       <div id="banca-mesi"></div>
     </div>
 
   </div>
 
-  <!-- ══ TAB: RIEPILOGO ══ -->
+  <!-- ══ RIEPILOGO ══ -->
   <div class="section" id="tab-riepilogo">
-
-    <!-- Totali per mese -->
     <div class="card">
       <div class="card-title">Spese per mese</div>
-      <div id="riepilogo-mesi-chart"></div>
+      <div id="riepilogo-mesi"></div>
     </div>
-
-    <!-- Totali per categoria -->
     <div class="card">
-      <div class="card-title">Totale per categoria (tutti i mesi)</div>
-      <div id="riepilogo-categorie"></div>
+      <div class="card-title">Totale per categoria</div>
+      <div id="riepilogo-cats"></div>
     </div>
-
   </div>
 
 </div>
@@ -445,76 +472,62 @@ body {
 <div class="toast" id="toast">✓ Salvato</div>
 
 <script>
-// ── DATA ──────────────────────────────────────────────────────────────
+// ── COSTANTI ──────────────────────────────────────────────────────────────
 const MONTHS = ['Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
-const CATEGORIES = [
+const CATS   = [
   'Affitto/Mutuo','Spesa alimentare','Ristoranti/Bar','Trasporti',
   'Carburante','Abbigliamento','Salute/Farmacia','Sport/Benessere',
   'Intrattenimento','Abbonamenti','Istruzione','Regali','Altro'
 ];
 
-let currentMonth = 0; // index into MONTHS
+let curMonth = 0;
 
-// Storage key: spese2026
-function storageKey() { return 'spese2026'; }
+// ── STORAGE ───────────────────────────────────────────────────────────────
+const KEY = 'spese2026b';
 
-function loadAll() {
-  try { return JSON.parse(localStorage.getItem(storageKey())) || {}; } catch { return {}; }
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
 }
-function saveAll(data) {
-  localStorage.setItem(storageKey(), JSON.stringify(data));
-}
+function save(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
 
-function getMonthData(mi) {
-  const all = loadAll();
-  if (!all[mi]) all[mi] = { entrateCarta: '', entrateContanti: '', cats: {} };
-  if (!all[mi].cats) all[mi].cats = {};
-  // migrate old single-field entrate
-  if (all[mi].entrate !== undefined) {
-    all[mi].entrateCarta = all[mi].entrateCarta || all[mi].entrate;
-    delete all[mi].entrate;
-    saveAll(all);
-  }
-  if (all[mi].entrateCarta === undefined) all[mi].entrateCarta = '';
-  if (all[mi].entrateContanti === undefined) all[mi].entrateContanti = '';
-  CATEGORIES.forEach(c => {
-    const existing = all[mi].cats[c];
-    if (!existing) {
-      all[mi].cats[c] = [];
-    } else if (!Array.isArray(existing)) {
-      const items = [];
-      if (val(existing.carta) > 0) items.push({ desc: '', amount: existing.carta, tipo: 'carta' });
-      if (val(existing.contanti) > 0) items.push({ desc: '', amount: existing.contanti, tipo: 'contanti' });
-      all[mi].cats[c] = items;
-    }
-  });
-  return all[mi];
+function getMonth(mi) {
+  const d = load();
+  if (!d[mi]) d[mi] = { ec: '', ecc: '', voci: [] };
+  if (!d[mi].voci) d[mi].voci = [];
+  return d[mi];
 }
-
-function setMonthData(mi, data) {
-  const all = loadAll();
-  all[mi] = data;
-  saveAll(all);
+function setMonth(mi, m) {
+  const d = load(); d[mi] = m; save(d);
 }
 
 function getGlobal() {
-  const all = loadAll();
-  return all['global'] || { saldoIniziale: '' };
+  const d = load();
+  return d['g'] || { si: '' };
 }
 function setGlobal(g) {
-  const all = loadAll();
-  all['global'] = g;
-  saveAll(all);
+  const d = load(); d['g'] = g; save(d);
 }
 
-// ── FORMAT ────────────────────────────────────────────────────────────
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function v(s) { return parseFloat(String(s||'').replace(',','.')) || 0; }
+
 function fmt(n) {
-  if (isNaN(n) || n === null) return '€0,00';
-  return '€' + Number(n).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const abs = Math.abs(n);
+  const s = '€' + abs.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n < 0 ? '−' + s : s;
 }
-function val(str) { return parseFloat(String(str).replace(',', '.')) || 0; }
 
-// ── TABS ──────────────────────────────────────────────────────────────
+function monthTotals(mi) {
+  const m = getMonth(mi);
+  let carta = 0, cont = 0;
+  m.voci.forEach(vo => {
+    if (vo.tipo === 'carta') carta += v(vo.amount);
+    else cont += v(vo.amount);
+  });
+  return { carta, cont, ec: v(m.ec), ecc: v(m.ecc) };
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────
 function switchTab(tab) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -522,380 +535,352 @@ function switchTab(tab) {
   document.getElementById('tab-' + tab).classList.add('active');
   document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
   document.getElementById('nav-' + tab).classList.add('active');
-  if (tab === 'banca') renderBanca();
+  if (tab === 'banca')     renderBanca();
   if (tab === 'riepilogo') renderRiepilogo();
 }
 
-// ── MONTH MODAL ───────────────────────────────────────────────────────
+// ── MONTH MODAL ───────────────────────────────────────────────────────────
 function openMonthModal() {
-  const grid = document.getElementById('monthGrid');
-  grid.innerHTML = MONTHS.map((m, i) =>
-    `<div class="month-btn ${i===currentMonth?'active':''}" onclick="selectMonth(${i})">${m}</div>`
+  document.getElementById('monthGrid').innerHTML = MONTHS.map((m, i) =>
+    `<div class="month-btn${i===curMonth?' active':''}" onclick="selMonth(${i})">${m}</div>`
   ).join('');
   document.getElementById('monthModal').classList.add('open');
 }
 function closeMonthModal(e) {
-  if (!e || e.target === document.getElementById('monthModal') || !e.target.closest('.modal'))
+  if (!e || e.target===document.getElementById('monthModal') || !e.target.closest('.modal'))
     document.getElementById('monthModal').classList.remove('open');
 }
-function selectMonth(i) {
-  currentMonth = i;
-  document.getElementById('currentMonthLabel').textContent = MONTHS[i];
+function selMonth(i) {
+  curMonth = i;
+  document.getElementById('lblMese').textContent = MONTHS[i];
   document.getElementById('monthModal').classList.remove('open');
   renderSpese();
 }
 
-// ── RENDER SPESE ──────────────────────────────────────────────────────
+// ── RENDER SPESE ──────────────────────────────────────────────────────────
 function renderSpese() {
-  const data = getMonthData(currentMonth);
-
-  document.getElementById('inp-entrate-carta').value    = data.entrateCarta    || '';
-  document.getElementById('inp-entrate-contanti').value = data.entrateContanti || '';
-
-  // categories
-  const container = document.getElementById('categories-container');
-  container.innerHTML = CATEGORIES.map((cat, ci) => {
-    const items = data.cats[cat] || [];
-    const { carta, contanti } = catTotals(items);
-    const tot = carta + contanti;
-    return `
-    <div class="category-row" id="catrow-${ci}">
-      <div class="cat-header" onclick="toggleCat(${ci})">
-        <span class="cat-name">${cat}</span>
-        <span class="cat-total" id="cat-tot-${ci}">${tot > 0 ? fmt(tot) : ''}</span>
-        <span style="color:var(--muted);margin-left:8px;font-size:.8rem" id="cat-arrow-${ci}">›</span>
-      </div>
-      <div class="cat-body" id="cat-body-${ci}">
-        <div class="voci-list" id="voci-${ci}"></div>
-        <button class="btn-add-voce" onclick="addVoce(${ci})">+ Aggiungi voce</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  CATEGORIES.forEach((cat, ci) => renderVoci(ci, data.cats[cat] || []));
-
+  const m = getMonth(curMonth);
+  document.getElementById('inp-ec').value  = m.ec  || '';
+  document.getElementById('inp-ecc').value = m.ecc || '';
+  renderCats();
   refreshTotals();
 }
 
-function renderVoci(ci, items) {
-  const container = document.getElementById(`voci-${ci}`);
-  if (!container) return;
-  if (!items.length) {
-    container.innerHTML = '<div class="voce-empty">Nessuna voce — premi + per aggiungere</div>';
-    return;
-  }
-  container.innerHTML = items.map((item, ii) => `
-    <div class="voce-item">
-      <input type="text" class="voce-desc" placeholder="Descrizione (opzionale)" value="${(item.desc||'').replace(/"/g,'&quot;')}"
-        oninput="updateVoce(${ci},${ii},'desc',this.value)">
-      <div class="voce-row">
-        <div class="voce-wrap">
-          <span class="currency">€</span>
-          <input type="text" inputmode="decimal" placeholder="0.00" value="${item.amount||''}"
-            oninput="updateVoce(${ci},${ii},'amount',this.value)"
-            onchange="updateVoce(${ci},${ii},'amount',this.value)">
+function renderCats() {
+  const m   = getMonth(curMonth);
+  const cnt = document.getElementById('cats-container');
+  cnt.innerHTML = CATS.map((cat, ci) => {
+    const voci = m.voci.filter(vo => vo.cat === cat);
+    const tot  = voci.reduce((s, vo) => s + v(vo.amount), 0);
+    return `
+      <div class="cat-row" id="cat-${ci}">
+        <div class="cat-header" onclick="toggleCat(${ci})">
+          <span class="cat-name">${cat}</span>
+          <span class="cat-total" id="ct-${ci}">${tot !== 0 ? fmt(tot) : ''}</span>
+          <span class="cat-arrow" id="ca-${ci}">›</span>
         </div>
-        <button class="tipo-btn ${item.tipo==='carta'?'tipo-carta':'tipo-cash'}" onclick="toggleTipo(${ci},${ii})">
-          ${item.tipo==='carta'?'💳 Carta':'💵 Contanti'}
-        </button>
-        <button class="voce-del" onclick="deleteVoce(${ci},${ii})">✕</button>
-      </div>
-    </div>
-  `).join('');
+        <div class="cat-body" id="cb-${ci}">
+          <div id="voci-${ci}">${renderVociHTML(voci, ci)}</div>
+          <button class="btn-add-voce" onclick="showAddForm(${ci})">+ Aggiungi voce</button>
+        </div>
+      </div>`;
+  }).join('');
 }
 
+function renderVociHTML(voci, ci) {
+  if (!voci.length) return '<div class="voce-empty">Nessuna voce</div>';
+  return voci.map((vo, localIdx) => {
+    const isNeg = v(vo.amount) < 0;
+    return `
+      <div class="voce-item">
+        <div class="voce-info">
+          <div class="voce-desc-text${vo.desc?'':' empty'}">${vo.desc || 'senza descrizione'}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+            <span class="voce-amount${isNeg?' neg-val':''}">${fmt(v(vo.amount))}</span>
+            <span class="voce-badge ${vo.tipo==='carta'?'badge-carta':'badge-contanti'}">${vo.tipo==='carta'?'💳 carta':'💵 contanti'}</span>
+          </div>
+        </div>
+        <button class="voce-del" onclick="deleteVoce(${ci},${localIdx})">🗑</button>
+      </div>`;
+  }).join('');
+}
+
+function refreshVociBlock(ci) {
+  const m    = getMonth(curMonth);
+  const cat  = CATS[ci];
+  const voci = m.voci.filter(vo => vo.cat === cat);
+  const tot  = voci.reduce((s, vo) => s + v(vo.amount), 0);
+  const el   = document.getElementById(`voci-${ci}`);
+  if (el) el.innerHTML = renderVociHTML(voci, ci);
+  const ct = document.getElementById(`ct-${ci}`);
+  if (ct) ct.textContent = tot !== 0 ? fmt(tot) : '';
+  refreshTotals();
+}
+
+// ── CAT TOGGLE ────────────────────────────────────────────────────────────
 function toggleCat(ci) {
-  const body  = document.getElementById(`cat-body-${ci}`);
-  const arrow = document.getElementById(`cat-arrow-${ci}`);
+  const body  = document.getElementById(`cb-${ci}`);
+  const arrow = document.getElementById(`ca-${ci}`);
   const open  = body.classList.toggle('open');
   arrow.textContent = open ? '⌄' : '›';
 }
 
-function addVoce(ci) {
-  const cat  = CATEGORIES[ci];
-  const data = getMonthData(currentMonth);
-  if (!Array.isArray(data.cats[cat])) data.cats[cat] = [];
-  data.cats[cat].push({ desc: '', amount: '', tipo: 'carta' });
-  setMonthData(currentMonth, data);
-  const body  = document.getElementById(`cat-body-${ci}`);
-  const arrow = document.getElementById(`cat-arrow-${ci}`);
-  if (body && !body.classList.contains('open')) {
+// ── ADD FORM ──────────────────────────────────────────────────────────────
+let formState = { ci: -1, tipo: 'carta', neg: false };
+
+function showAddForm(ci) {
+  // close any existing form
+  document.querySelectorAll('.add-voce-form').forEach(f => f.remove());
+
+  // open category if closed
+  const body  = document.getElementById(`cb-${ci}`);
+  const arrow = document.getElementById(`ca-${ci}`);
+  if (!body.classList.contains('open')) {
     body.classList.add('open');
-    if (arrow) arrow.textContent = '⌄';
+    arrow.textContent = '⌄';
   }
-  renderVoci(ci, data.cats[cat]);
-  refreshTotals();
-  setTimeout(() => {
-    const list   = document.getElementById(`voci-${ci}`);
-    const inputs = list?.querySelectorAll('.voce-desc');
-    inputs?.[inputs.length - 1]?.focus();
-  }, 50);
+
+  formState = { ci, tipo: 'carta', neg: false };
+
+  const form = document.createElement('div');
+  form.className = 'add-voce-form';
+  form.id = 'form-' + ci;
+  form.innerHTML = `
+    <input type="text" id="f-desc" placeholder="Descrizione (opzionale)">
+    <div class="add-form-row">
+      <button class="sign-btn" id="f-sign" onclick="toggleFormSign(${ci})">+</button>
+      <div class="amount-wrap">
+        <span class="cur">€</span>
+        <input type="text" inputmode="decimal" id="f-amount" placeholder="0.00">
+      </div>
+      <button class="tipo-toggle tipo-carta" id="f-tipo" onclick="toggleFormTipo(${ci})">💳 Carta</button>
+    </div>
+    <div class="form-actions">
+      <button class="btn-confirm" onclick="confirmVoce(${ci})">✓ Aggiungi</button>
+      <button class="btn-cancel"  onclick="cancelForm(${ci})">✕</button>
+    </div>`;
+
+  const addBtn = body.querySelector('.btn-add-voce');
+  body.insertBefore(form, addBtn);
+  setTimeout(() => document.getElementById('f-desc')?.focus(), 50);
 }
 
-function updateVoce(ci, ii, field, value) {
-  const cat  = CATEGORIES[ci];
-  const data = getMonthData(currentMonth);
-  if (!Array.isArray(data.cats[cat])) data.cats[cat] = [];
-  if (!data.cats[cat][ii]) return;
-  data.cats[cat][ii][field] = value;
-  setMonthData(currentMonth, data);
-  if (field === 'amount') {
-    const { carta, contanti } = catTotals(data.cats[cat]);
-    const tot = carta + contanti;
-    const el  = document.getElementById(`cat-tot-${ci}`);
-    if (el) el.textContent = tot > 0 ? fmt(tot) : '';
-    refreshTotals();
+function toggleFormSign(ci) {
+  formState.neg = !formState.neg;
+  const btn = document.getElementById('f-sign');
+  if (btn) {
+    btn.textContent = formState.neg ? '−' : '+';
+    btn.className   = 'sign-btn' + (formState.neg ? ' neg' : '');
   }
 }
 
-function deleteVoce(ci, ii) {
-  const cat  = CATEGORIES[ci];
-  const data = getMonthData(currentMonth);
-  data.cats[cat].splice(ii, 1);
-  setMonthData(currentMonth, data);
-  renderVoci(ci, data.cats[cat]);
-  const { carta, contanti } = catTotals(data.cats[cat]);
-  const tot = carta + contanti;
-  const el  = document.getElementById(`cat-tot-${ci}`);
-  if (el) el.textContent = tot > 0 ? fmt(tot) : '';
+function toggleFormTipo(ci) {
+  formState.tipo = formState.tipo === 'carta' ? 'contanti' : 'carta';
+  const btn = document.getElementById('f-tipo');
+  if (btn) {
+    btn.className   = 'tipo-toggle ' + (formState.tipo === 'carta' ? 'tipo-carta' : 'tipo-cash');
+    btn.textContent = formState.tipo === 'carta' ? '💳 Carta' : '💵 Contanti';
+  }
+}
+
+function confirmVoce(ci) {
+  const descEl   = document.getElementById('f-desc');
+  const amountEl = document.getElementById('f-amount');
+  if (!descEl || !amountEl) return;
+
+  const desc   = descEl.value.trim();
+  let   amount = v(amountEl.value);
+  if (amount === 0) { amountEl.focus(); return; }
+  if (formState.neg) amount = -Math.abs(amount);
+
+  const m = getMonth(curMonth);
+  m.voci.push({ cat: CATS[ci], desc, amount: String(amount), tipo: formState.tipo });
+  setMonth(curMonth, m);
+
+  cancelForm(ci);
+  refreshVociBlock(ci);
+  showToast();
+}
+
+function cancelForm(ci) {
+  const f = document.getElementById('form-' + ci);
+  if (f) f.remove();
+}
+
+// ── DELETE VOCE ───────────────────────────────────────────────────────────
+function deleteVoce(ci, localIdx) {
+  const m   = getMonth(curMonth);
+  const cat = CATS[ci];
+  let   idx = -1, count = 0;
+  m.voci.forEach((vo, i) => { if (vo.cat === cat) { if (count === localIdx) idx = i; count++; } });
+  if (idx >= 0) { m.voci.splice(idx, 1); setMonth(curMonth, m); }
+  refreshVociBlock(ci);
+}
+
+// ── ENTRATE ───────────────────────────────────────────────────────────────
+function saveEntrate() {
+  const m = getMonth(curMonth);
+  m.ec  = document.getElementById('inp-ec').value;
+  m.ecc = document.getElementById('inp-ecc').value;
+  setMonth(curMonth, m);
   refreshTotals();
 }
 
-function toggleTipo(ci, ii) {
-  const cat  = CATEGORIES[ci];
-  const data = getMonthData(currentMonth);
-  data.cats[cat][ii].tipo = data.cats[cat][ii].tipo === 'carta' ? 'contanti' : 'carta';
-  setMonthData(currentMonth, data);
-  renderVoci(ci, data.cats[cat]);
-  refreshTotals();
+// ── REFRESH TOTALS ────────────────────────────────────────────────────────
+function refreshTotals() {
+  const t = monthTotals(curMonth);
+  const tot    = t.carta + t.cont;
+  const entrate = t.ec + t.ecc;
+  const saldo  = entrate - tot;
+
+  const etEl = document.getElementById('sum-entrate-tot');
+  if (etEl) etEl.textContent = entrate > 0 ? fmt(entrate) : '';
+  document.getElementById('sum-carta').textContent = fmt(t.carta);
+  document.getElementById('sum-cont').textContent  = fmt(t.cont);
+  document.getElementById('sum-tot').textContent   = fmt(tot);
+  const sEl = document.getElementById('sum-saldo');
+  sEl.textContent = fmt(saldo);
+  sEl.className   = 'stat-val ' + (saldo >= 0 ? 'accent' : 'danger');
+}
+
+// ── SALDO INIZIALE ────────────────────────────────────────────────────────
+function saveSaldoIniziale() {
+  const g = getGlobal();
+  g.si = document.getElementById('inp-si').value;
+  setGlobal(g);
 }
 
 function toggleSaldoSign() {
-  const si  = document.getElementById('inp-saldo-iniziale');
-  const btn = document.getElementById('btn-saldo-sign');
-  const cur = String(si.value || '');
+  const input = document.getElementById('inp-si');
+  const btn   = document.getElementById('btn-si-sign');
+  const cur   = input.value;
   let newVal;
   if (cur === '' || cur === '-') {
     newVal = cur === '-' ? '' : '-';
   } else {
-    newVal = String(-val(cur));
+    const n = v(cur);
+    newVal  = n === 0 ? '' : String(-n);
   }
-  si.value = newVal;
-  if (btn) { btn.textContent = newVal.startsWith('-') ? '−' : '+'; btn.className = 'sign-btn' + (newVal.startsWith('-') ? ' negative' : ''); }
-  const g = getGlobal(); g.saldoIniziale = newVal; setGlobal(g);
+  input.value = newVal;
+  const isNeg = newVal.startsWith('-');
+  btn.textContent = isNeg ? '−' : '+';
+  btn.className   = 'sign-btn' + (isNeg ? ' neg' : '');
+  saveSaldoIniziale();
   renderBanca();
 }
 
-function toggleSign(ci, ii) {
-  const cat  = CATEGORIES[ci];
-  const data = getMonthData(currentMonth);
-  const item = data.cats[cat][ii];
-  const cur  = String(item.amount || '');
-  if (cur === '' || cur === '-') {
-    item.amount = cur === '-' ? '' : '-';
-  } else {
-    item.amount = String(-val(cur));
-  }
-  setMonthData(currentMonth, data);
-  renderVoci(ci, data.cats[cat]);
-  const { carta, contanti } = catTotals(data.cats[cat]);
-  const tot = carta + contanti;
-  const el  = document.getElementById(`cat-tot-${ci}`);
-  if (el) el.textContent = tot > 0 ? fmt(tot) : '';
-  refreshTotals();
-}
-
-function saveAndRefresh() {
-  const data = getMonthData(currentMonth);
-  data.entrateCarta    = document.getElementById('inp-entrate-carta').value;
-  data.entrateContanti = document.getElementById('inp-entrate-contanti').value;
-
-  setMonthData(currentMonth, data);
-
-  // global saldo iniziale
-  const si = document.getElementById('inp-saldo-iniziale');
-  if (si) {
-    const g = getGlobal(); g.saldoIniziale = si.value; setGlobal(g);
-  }
-  refreshTotals();
-  showToast();
-}
-
-function catTotals(items) {
-  let carta = 0, contanti = 0;
-  (Array.isArray(items) ? items : []).forEach(it => {
-    if (it.tipo === 'carta') carta += val(it.amount);
-    else contanti += val(it.amount);
-  });
-  return { carta, contanti };
-}
-
-function refreshTotals() {
-  const data   = getMonthData(currentMonth);
-  let carta    = 0, contanti = 0;
-  CATEGORIES.forEach(cat => {
-    const t = catTotals(data.cats[cat]);
-    carta    += t.carta;
-    contanti += t.contanti;
-  });
-  const tot            = carta + contanti;
-  const entrateCarta   = val(data.entrateCarta);
-  const entrateContan  = val(data.entrateContanti);
-  const entrate        = entrateCarta + entrateContan;
-  const saldo          = entrate - tot;
-
-  const totEl = document.getElementById('sum-entrate-tot');
-  if (totEl) totEl.textContent = entrate > 0 ? fmt(entrate) : '';
-
-  document.getElementById('sum-carta').textContent    = fmt(carta);
-  document.getElementById('sum-contanti').textContent = fmt(contanti);
-  document.getElementById('sum-tot').textContent      = fmt(tot);
-  const saldoEl = document.getElementById('sum-saldo');
-  saldoEl.textContent = fmt(saldo);
-  saldoEl.className   = 'stat-val ' + (saldo >= 0 ? 'accent' : 'danger');
-
-}
-
-// ── RENDER BANCA ──────────────────────────────────────────────────────
+// ── RENDER BANCA ──────────────────────────────────────────────────────────
 function renderBanca() {
-  const g  = getGlobal();
-  const si = document.getElementById('inp-saldo-iniziale');
+  const g = getGlobal();
+  const si = document.getElementById('inp-si');
   if (si) {
-    si.value = g.saldoIniziale || '';
-    const btn = document.getElementById('btn-saldo-sign');
-    const isNeg = String(g.saldoIniziale||'').startsWith('-');
-    if (btn) { btn.textContent = isNeg ? '−' : '+'; btn.className = 'sign-btn' + (isNeg ? ' negative' : ''); }
+    si.value = g.si || '';
+    const btn = document.getElementById('btn-si-sign');
+    const isNeg = String(g.si||'').startsWith('-');
+    if (btn) { btn.textContent = isNeg?'−':'+'; btn.className='sign-btn'+(isNeg?' neg':''); }
   }
 
-  let saldo = val(g.saldoIniziale);
+  let saldo = v(g.si);
   let html  = '';
 
   MONTHS.forEach((month, mi) => {
-    const data    = getMonthData(mi);
-    let carta     = 0, contanti = 0;
-    CATEGORIES.forEach(cat => {
-      const t = catTotals(data.cats[cat]);
-      carta    += t.carta;
-      contanti += t.contanti;
-    });
-    const totSpese = carta + contanti;
-    const entrateCarta = val(data.entrateCarta);
-    saldo = saldo + entrateCarta - carta;
-
-    const cls = saldo >= 0 ? 'pos' : 'neg';
+    const t = monthTotals(mi);
+    saldo += t.ec - t.carta;
+    const cls = saldo >= 0 ? 'pos' : 'neg-c';
     html += `
       <div class="banca-row">
         <div>
           <div class="banca-month">${month}</div>
           <div class="banca-detail">
-            <span style="color:var(--accent)">+${fmt(entrateCarta)}</span> entrate carta &nbsp;·&nbsp;
-            <span style="color:var(--accent2)">💳${fmt(carta)}</span> spese carta
+            <span style="color:var(--accent)">+${fmt(t.ec)}</span> entrate carta &nbsp;·&nbsp;
+            <span style="color:var(--accent2)">${fmt(t.carta)}</span> spese carta
           </div>
         </div>
         <div class="banca-right">
           <div class="banca-saldo ${cls}">${fmt(saldo)}</div>
-          <div class="banca-detail">${carta > 0 ? '−'+fmt(carta) : '—'}</div>
         </div>
       </div>`;
   });
 
   document.getElementById('banca-mesi').innerHTML = html;
-
-  const saEl  = document.getElementById('banca-saldo-attuale');
-  saEl.textContent = fmt(saldo);
-  saEl.className   = 'saldo-value' + (saldo < 0 ? ' negative' : '');
-  document.getElementById('banca-status').textContent = saldo >= 0 ? '✅ Saldo positivo' : '⚠️ Attenzione: saldo negativo!';
+  const el = document.getElementById('banca-saldo');
+  el.textContent = fmt(saldo);
+  el.className   = 'saldo-value' + (saldo < 0 ? ' neg' : '');
+  document.getElementById('banca-status').textContent =
+    saldo >= 0 ? '✅ Saldo positivo' : '⚠️ Attenzione: saldo negativo!';
 }
 
-// ── RENDER RIEPILOGO ──────────────────────────────────────────────────
+// ── RENDER RIEPILOGO ──────────────────────────────────────────────────────
 function renderRiepilogo() {
   // per mese
-  let mesiHtml = '<table class="riepilogo-table"><thead><tr><th>Mese</th><th>💳 Carta</th><th>💵 Cont.</th><th>Uscite</th><th style="color:var(--accent)">Entrate</th></tr></thead><tbody>';
-  let totCarta = 0, totCont = 0;
-
+  let html = '<table class="riepilogo-table"><thead><tr><th>Mese</th><th>💳 Carta</th><th>💵 Cont.</th><th>Uscite</th><th style="color:var(--accent)">Entrate</th></tr></thead><tbody>';
+  let totC = 0, totCo = 0;
   MONTHS.forEach((month, mi) => {
-    const data = getMonthData(mi);
-    let carta  = 0, contanti = 0;
-    CATEGORIES.forEach(cat => {
-      const t = catTotals(data.cats[cat]);
-      carta    += t.carta;
-      contanti += t.contanti;
-    });
-    const tot     = carta + contanti;
-    const entrate = val(data.entrateCarta) + val(data.entrateContanti);
-    totCarta += carta; totCont += contanti;
-    mesiHtml += `<tr>
+    const t = monthTotals(mi);
+    const tot = t.carta + t.cont;
+    totC += t.carta; totCo += t.cont;
+    html += `<tr>
       <td>${month.substring(0,3)}</td>
-      <td style="color:var(--accent2)">${carta>0?fmt(carta):'—'}</td>
-      <td style="color:var(--cash)">${contanti>0?fmt(contanti):'—'}</td>
-      <td>${tot>0?fmt(tot):'—'}</td>
-      <td style="color:var(--accent)">${entrate>0?fmt(entrate):'—'}</td>
+      <td style="color:var(--accent2)">${t.carta!==0?fmt(t.carta):'—'}</td>
+      <td style="color:var(--cash)">${t.cont!==0?fmt(t.cont):'—'}</td>
+      <td>${tot!==0?fmt(tot):'—'}</td>
+      <td style="color:var(--accent)">${(t.ec+t.ecc)!==0?fmt(t.ec+t.ecc):'—'}</td>
     </tr>`;
   });
-  const totEntrate = MONTHS.reduce((s, _, mi) => {
-    const d = getMonthData(mi);
-    return s + val(d.entrateCarta) + val(d.entrateContanti);
-  }, 0);
-  mesiHtml += `<tr>
-    <td>Totale</td>
-    <td style="color:var(--accent2)">${fmt(totCarta)}</td>
-    <td style="color:var(--cash)">${fmt(totCont)}</td>
-    <td>${fmt(totCarta+totCont)}</td>
-    <td style="color:var(--accent)">${fmt(totEntrate)}</td>
-  </tr></tbody></table>`;
-  document.getElementById('riepilogo-mesi-chart').innerHTML = mesiHtml;
+  const totE = MONTHS.reduce((s,_,mi) => { const t=monthTotals(mi); return s+t.ec+t.ecc; }, 0);
+  html += `<tr><td>Totale</td><td style="color:var(--accent2)">${fmt(totC)}</td><td style="color:var(--cash)">${fmt(totCo)}</td><td>${fmt(totC+totCo)}</td><td style="color:var(--accent)">${fmt(totE)}</td></tr></tbody></table>`;
+  document.getElementById('riepilogo-mesi').innerHTML = html;
 
   // per categoria
-  let catRows = '';
-  const catSummary = CATEGORIES.map(cat => {
+  const catData = CATS.map(cat => {
     let tot = 0;
-    MONTHS.forEach((_, mi) => {
-      const t = catTotals(getMonthData(mi).cats[cat]);
-      tot += t.carta + t.contanti;
+    MONTHS.forEach((_,mi) => {
+      getMonth(mi).voci.filter(vo=>vo.cat===cat).forEach(vo => tot += v(vo.amount));
     });
     return { cat, tot };
-  }).filter(x => x.tot > 0).sort((a,b) => b.tot - a.tot);
+  }).filter(x => x.tot !== 0).sort((a,b) => Math.abs(b.tot)-Math.abs(a.tot));
 
-  const maxTot = catSummary.length ? catSummary[0].tot : 1;
-  catSummary.forEach(({ cat, tot }) => {
-    const pct = Math.round((tot / maxTot) * 100);
-    catRows += `
+  const max = catData.length ? Math.abs(catData[0].tot) : 1;
+  let catHtml = catData.map(({cat, tot}) => {
+    const pct = Math.round((Math.abs(tot)/max)*100);
+    return `
       <div style="margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px">
           <span style="font-size:.85rem">${cat}</span>
-          <span style="font-family:var(--mono);font-size:.85rem;color:var(--accent)">${fmt(tot)}</span>
+          <span style="font-family:var(--mono);font-size:.85rem;color:${tot<0?'var(--danger)':'var(--accent)'}">${fmt(tot)}</span>
         </div>
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill" style="width:${pct}%"></div>
+        <div style="background:var(--bg3);border-radius:4px;height:6px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;border-radius:4px;background:${tot<0?'var(--danger)':'var(--accent)'}"></div>
         </div>
       </div>`;
-  });
-  document.getElementById('riepilogo-categorie').innerHTML = catRows || '<p style="color:var(--muted);font-size:.85rem">Nessun dato ancora</p>';
+  }).join('') || '<p style="color:var(--muted);font-size:.85rem">Nessun dato ancora</p>';
+  document.getElementById('riepilogo-cats').innerHTML = catHtml;
 }
 
-// ── TOAST ─────────────────────────────────────────────────────────────
-let toastTimer;
+// ── TOAST ─────────────────────────────────────────────────────────────────
+let toastTmr;
 function showToast() {
   const t = document.getElementById('toast');
   t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 1500);
+  clearTimeout(toastTmr);
+  toastTmr = setTimeout(() => t.classList.remove('show'), 1400);
 }
 
-// ── SERVICE WORKER ────────────────────────────────────────────────────
+// ── SERVICE WORKER ────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
-  const swCode = `
-const CACHE = 'spese2026-v3';
-self.addEventListener('install', e => { self.skipWaiting(); });
-self.addEventListener('activate', e => { self.clients.claim(); });
-self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });
-  `;
-  const blob = new Blob([swCode], {type: 'application/javascript'});
-  const swUrl = URL.createObjectURL(blob);
-  navigator.serviceWorker.register(swUrl).catch(() => {});
+  const sw = `
+const C='spese2026-v10';
+self.addEventListener('install',()=>self.skipWaiting());
+self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k))))); self.clients.claim(); });
+self.addEventListener('fetch',e=>{ e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))); });`;
+  const url = URL.createObjectURL(new Blob([sw],{type:'application/javascript'}));
+  navigator.serviceWorker.register(url).catch(()=>{});
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────
+// ── INIT ──────────────────────────────────────────────────────────────────
+curMonth = new Date().getMonth() >= 5 ? new Date().getMonth() - 5 : 0;
+if (curMonth >= MONTHS.length) curMonth = 0;
+document.getElementById('lblMese').textContent = MONTHS[curMonth];
 renderSpese();
 </script>
 </body>

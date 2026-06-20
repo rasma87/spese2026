@@ -356,18 +356,20 @@ body { font-family: var(--font); background: var(--bg); color: var(--text);
       <div class="stat-label">💰 Entrate &nbsp;<span id="sum-entrate-tot" style="font-family:var(--mono);color:var(--accent);font-size:.85rem"></span></div>
       <div class="grid2">
         <div class="input-group">
-          <label>💳 Carta</label>
-          <div class="input-wrap card-wrap">
+          <label style="color:var(--accent)">💳 Carta</label>
+          <div class="input-wrap" style="--focus-color:var(--accent)">
             <span class="cur">€</span>
             <input type="text" inputmode="decimal" id="inp-ec" placeholder="0.00"
+              style="border-color:rgba(0,212,170,.3);color:var(--accent)"
               oninput="saveEntrate()" onchange="saveEntrate()">
           </div>
         </div>
         <div class="input-group">
-          <label>💵 Contanti</label>
-          <div class="input-wrap cash-wrap">
+          <label style="color:var(--accent)">💵 Contanti</label>
+          <div class="input-wrap">
             <span class="cur">€</span>
             <input type="text" inputmode="decimal" id="inp-ecc" placeholder="0.00"
+              style="border-color:rgba(0,212,170,.3);color:var(--accent)"
               oninput="saveEntrate()" onchange="saveEntrate()">
           </div>
         </div>

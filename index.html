@@ -582,7 +582,7 @@ function renderCats() {
       <div class="cat-row" id="cat-${ci}">
         <div class="cat-header" onclick="toggleCat(${ci})">
           <span class="cat-name">${cat}</span>
-          <span class="cat-total" id="ct-${ci}" style="color:var(--danger)">${tot > 0 ? '−€' + tot.toString().replace('.',',') : ''}</span>
+          <span class="cat-total" id="ct-${ci}">${tot > 0 ? '€' + tot.toString().replace('.',',') : ''}</span>
           <span class="cat-arrow" id="ca-${ci}">›</span>
         </div>
         <div class="cat-body" id="cb-${ci}">
@@ -597,13 +597,13 @@ function renderVociHTML(voci, ci) {
   if (!voci.length) return '<div class="voce-empty">Nessuna voce</div>';
   return voci.map((vo, localIdx) => {
     const amt = Math.abs(v(vo.amount));
-    const disp = '−€' + amt.toString().replace('.',',');
+    const disp = '€' + amt.toString().replace('.',',');
     return `
       <div class="voce-item" id="vi-${ci}-${localIdx}">
         <div class="voce-info">
           <div class="voce-desc-text${vo.desc?'':' empty'}">${vo.desc || 'senza descrizione'}</div>
           <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
-            <span class="voce-amount neg-val">${disp}</span>
+            <span class="voce-amount">${disp}</span>
             <span class="voce-badge ${vo.tipo==='carta'?'badge-carta':'badge-contanti'}">${vo.tipo==='carta'?'💳 carta':'💵 contanti'}</span>
           </div>
         </div>
@@ -623,7 +623,7 @@ function refreshVociBlock(ci) {
   const el   = document.getElementById(`voci-${ci}`);
   if (el) el.innerHTML = renderVociHTML(voci, ci);
   const ct = document.getElementById(`ct-${ci}`);
-  if (ct) ct.textContent = tot > 0 ? '−€' + tot.toString().replace('.',',') : '';
+  if (ct) ct.textContent = tot > 0 ? '€' + tot.toString().replace('.',',') : '';
   refreshTotals();
 }
 

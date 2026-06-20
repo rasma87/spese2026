@@ -378,15 +378,15 @@ body { font-family: var(--font); background: var(--bg); color: var(--text);
     <div class="stat-grid">
       <div class="stat">
         <div class="stat-label">💳 Spese carta</div>
-        <div class="stat-val card-color" id="sum-carta">€0,00</div>
+        <div class="stat-val danger" id="sum-carta">€0,00</div>
       </div>
       <div class="stat">
         <div class="stat-label">💵 Spese contanti</div>
-        <div class="stat-val cash-color" id="sum-cont">€0,00</div>
+        <div class="stat-val danger" id="sum-cont">€0,00</div>
       </div>
       <div class="stat full">
         <div class="stat-label">Totale spese</div>
-        <div class="stat-val" id="sum-tot">€0,00</div>
+        <div class="stat-val danger" id="sum-tot">€0,00</div>
       </div>
       <div class="stat full">
         <div class="stat-label">Saldo mese (entrate − spese)</div>
@@ -582,7 +582,7 @@ function renderCats() {
       <div class="cat-row" id="cat-${ci}">
         <div class="cat-header" onclick="toggleCat(${ci})">
           <span class="cat-name">${cat}</span>
-          <span class="cat-total" id="ct-${ci}">${tot > 0 ? '€' + tot.toString().replace('.',',') : ''}</span>
+          <span class="cat-total" id="ct-${ci}" style="color:var(--danger)">${tot > 0 ? '€' + tot.toString().replace('.',',') : ''}</span>
           <span class="cat-arrow" id="ca-${ci}">›</span>
         </div>
         <div class="cat-body" id="cb-${ci}">
@@ -603,7 +603,7 @@ function renderVociHTML(voci, ci) {
         <div class="voce-info">
           <div class="voce-desc-text${vo.desc?'':' empty'}">${vo.desc || 'senza descrizione'}</div>
           <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
-            <span class="voce-amount">${disp}</span>
+            <span class="voce-amount" style="color:var(--danger)">${disp}</span>
             <span class="voce-badge ${vo.tipo==='carta'?'badge-carta':'badge-contanti'}">${vo.tipo==='carta'?'💳 carta':'💵 contanti'}</span>
           </div>
         </div>
@@ -623,7 +623,7 @@ function refreshVociBlock(ci) {
   const el   = document.getElementById(`voci-${ci}`);
   if (el) el.innerHTML = renderVociHTML(voci, ci);
   const ct = document.getElementById(`ct-${ci}`);
-  if (ct) ct.textContent = tot > 0 ? '€' + tot.toString().replace('.',',') : '';
+  if (ct) { ct.textContent = tot > 0 ? '€' + tot.toString().replace('.',',') : ''; ct.style.color = 'var(--danger)'; }
   refreshTotals();
 }
 
@@ -866,7 +866,7 @@ function renderBanca() {
           <div class="banca-month">${month}</div>
           <div class="banca-detail">
             <span style="color:var(--accent)">+${fmt(t.ec)}</span> entrate carta &nbsp;·&nbsp;
-            <span style="color:var(--accent2)">${fmt(t.carta)}</span> spese carta
+            <span style="color:var(--danger)">${fmt(t.carta)}</span> spese carta
           </div>
         </div>
         <div class="banca-right">
@@ -894,14 +894,14 @@ function renderRiepilogo() {
     totC += t.carta; totCo += t.cont;
     html += `<tr>
       <td>${month.substring(0,3)}</td>
-      <td style="color:var(--accent2)">${t.carta!==0?fmt(t.carta):'—'}</td>
-      <td style="color:var(--cash)">${t.cont!==0?fmt(t.cont):'—'}</td>
+      <td style="color:var(--danger)">${t.carta!==0?fmt(t.carta):'—'}</td>
+      <td style="color:var(--danger)">${t.cont!==0?fmt(t.cont):'—'}</td>
       <td>${tot!==0?fmt(tot):'—'}</td>
       <td style="color:var(--accent)">${(t.ec+t.ecc)!==0?fmt(t.ec+t.ecc):'—'}</td>
     </tr>`;
   });
   const totE = MONTHS.reduce((s,_,mi) => { const t=monthTotals(mi); return s+t.ec+t.ecc; }, 0);
-  html += `<tr><td>Totale</td><td style="color:var(--accent2)">${fmt(totC)}</td><td style="color:var(--cash)">${fmt(totCo)}</td><td>${fmt(totC+totCo)}</td><td style="color:var(--accent)">${fmt(totE)}</td></tr></tbody></table>`;
+  html += `<tr><td>Totale</td><td style="color:var(--danger)">${fmt(totC)}</td><td style="color:var(--danger)">${fmt(totCo)}</td><td style="color:var(--danger)">${fmt(totC+totCo)}</td><td style="color:var(--accent)">${fmt(totE)}</td></tr></tbody></table>`;
   document.getElementById('riepilogo-mesi').innerHTML = html;
 
   // per categoria

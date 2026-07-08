@@ -400,11 +400,18 @@ body {
       </div>
     </div>
 
-    <!-- Saldo attuale -->
+    <!-- Saldo carta (si azzera ogni mese da Luglio) -->
     <div class="saldo-box">
-      <div class="saldo-label">Saldo attuale stimato</div>
+      <div class="saldo-label" id="lbl-saldo-carta">Saldo carta — Giugno</div>
       <div class="saldo-value" id="banca-saldo-attuale">€0,00</div>
       <div class="saldo-status" id="banca-status">—</div>
+    </div>
+
+    <!-- Contanti residui (cumulativo mese per mese) -->
+    <div class="saldo-box" style="border-color:var(--cash);background:linear-gradient(135deg,#1a1200 0%,#0a1f2a 100%)">
+      <div class="saldo-label">💵 Contanti residui (cumulativo)</div>
+      <div class="saldo-value" id="cash-residui" style="color:var(--cash)">€0,00</div>
+      <div class="saldo-status" id="cash-status">—</div>
     </div>
 
     <!-- Mesi -->
@@ -781,44 +788,68 @@ function renderBanca() {
     if (btn) btn.textContent = String(g.saldoIniziale||'').startsWith('-') ? '−' : '+';
   }
 
-  let saldo = val(g.saldoIniziale);
-  let html  = '';
+  // Carta: Giugno parte da saldoIniziale; da Luglio in poi si azzera ogni mese
+  // Contanti: cumulativo mese per mese
+  let saldoCarta = val(g.saldoIniziale);
+  let saldoCash  = 0;
+  let html       = '';
 
   MONTHS.forEach((month, mi) => {
-    const data    = getMonthData(mi);
-    let carta     = 0, contanti = 0;
+    // Da Luglio (mi >= 1) la carta riparte da zero ogni mese
+    if (mi >= 1) saldoCarta = 0;
+
+    const data = getMonthData(mi);
+    let carta = 0, contanti = 0;
     CATEGORIES.forEach(cat => {
       const t = catTotals(data.cats[cat]);
       carta    += t.carta;
       contanti += t.contanti;
     });
-    const totSpese = carta + contanti;
-    const entrateCarta = val(data.entrateCarta);
-    saldo = saldo + entrateCarta - carta;
+    const entrateCarta  = val(data.entrateCarta);
+    const entrateContan = val(data.entrateContanti);
 
-    const cls = saldo >= 0 ? 'pos' : 'neg';
+    saldoCarta += entrateCarta - carta;
+    saldoCash  += entrateContan - contanti;  // cumulativo
+
+    const clsCarta = saldoCarta >= 0 ? 'pos' : 'neg';
+    const clsCash  = saldoCash  >= 0 ? 'pos' : 'neg';
+    const resetLabel = mi >= 1 ? '<span style="font-size:.65rem;color:var(--muted);margin-left:4px">(azzerato)</span>' : '';
+
     html += `
       <div class="banca-row">
         <div>
           <div class="banca-month">${month}</div>
           <div class="banca-detail">
-            <span style="color:var(--accent)">+${fmt(entrateCarta)}</span> entrate carta &nbsp;·&nbsp;
-            <span style="color:var(--accent2)">💳${fmt(carta)}</span> spese carta
+            <span style="color:var(--accent)">+${fmt(entrateCarta)}</span> carta &nbsp;·&nbsp;
+            <span style="color:var(--accent2)">−${fmt(carta)}</span> spese carta
+          </div>
+          <div class="banca-detail" style="margin-top:2px">
+            <span style="color:var(--cash)">+${fmt(entrateContan)}</span> contanti &nbsp;·&nbsp;
+            <span style="color:var(--cash);opacity:.7">−${fmt(contanti)}</span> spese cash
           </div>
         </div>
         <div class="banca-right">
-          <div class="banca-saldo ${cls}">${fmt(saldo)}</div>
-          <div class="banca-detail">${carta > 0 ? '−'+fmt(carta) : '—'}</div>
+          <div class="banca-saldo ${clsCarta}">💳 ${fmt(saldoCarta)}${resetLabel}</div>
+          <div class="banca-saldo ${clsCash}" style="font-size:.88rem;margin-top:4px">💵 ${fmt(saldoCash)}</div>
         </div>
       </div>`;
   });
 
   document.getElementById('banca-mesi').innerHTML = html;
 
-  const saEl  = document.getElementById('banca-saldo-attuale');
-  saEl.textContent = fmt(saldo);
-  saEl.className   = 'saldo-value' + (saldo < 0 ? ' negative' : '');
-  document.getElementById('banca-status').textContent = saldo >= 0 ? '✅ Saldo positivo' : '⚠️ Attenzione: saldo negativo!';
+  // Aggiorna riquadri in cima
+  const saEl = document.getElementById('banca-saldo-attuale');
+  saEl.textContent = fmt(saldoCarta);
+  saEl.className   = 'saldo-value' + (saldoCarta < 0 ? ' negative' : '');
+  document.getElementById('banca-status').textContent = saldoCarta >= 0 ? '✅ Saldo positivo' : '⚠️ Attenzione: saldo negativo!';
+
+  const lblCarta = document.getElementById('lbl-saldo-carta');
+  if (lblCarta) lblCarta.textContent = 'Saldo carta — ' + MONTHS[currentMonth] + ' (si azzera ogni mese)';
+
+  const cashEl = document.getElementById('cash-residui');
+  cashEl.textContent = fmt(saldoCash);
+  cashEl.style.color = saldoCash >= 0 ? 'var(--cash)' : 'var(--danger)';
+  document.getElementById('cash-status').textContent = saldoCash >= 0 ? '✅ Contanti disponibili' : '⚠️ Contanti esauriti!';
 }
 
 // ── RENDER RIEPILOGO ──────────────────────────────────────────────────
@@ -899,7 +930,7 @@ function showToast() {
 // ── SERVICE WORKER ────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   const swCode = `
-const CACHE = 'spese2026-v1';
+const CACHE = 'spese2026-v11';
 self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => { self.clients.claim(); });
 self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });

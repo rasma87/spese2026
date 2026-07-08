@@ -612,7 +612,6 @@ function renderVoci(ci, items) {
       <input type="text" class="voce-desc" placeholder="Descrizione (opzionale)" value="${(item.desc||'').replace(/"/g,'&quot;')}"
         oninput="updateVoce(${ci},${ii},'desc',this.value)">
       <div class="voce-row">
-        <button class="sign-btn" onclick="toggleSign(${ci},${ii})">${(item.amount||'').startsWith('-')?'−':'+'}</button>
         <div class="voce-wrap">
           <span class="currency">€</span>
           <input type="text" inputmode="decimal" placeholder="0.00" value="${item.amount||''}"
@@ -704,20 +703,6 @@ function toggleSaldoSign() {
   renderBanca();
 }
 
-function toggleSign(ci, ii) {
-  const cat  = CATEGORIES[ci];
-  const data = getMonthData(currentMonth);
-  const item = data.cats[cat][ii];
-  const n    = val(item.amount);
-  item.amount = n === 0 ? '' : String(-n);
-  setMonthData(currentMonth, data);
-  renderVoci(ci, data.cats[cat]);
-  const { carta, contanti } = catTotals(data.cats[cat]);
-  const tot = carta + contanti;
-  const el  = document.getElementById(`cat-tot-${ci}`);
-  if (el) el.textContent = tot > 0 ? fmt(tot) : '';
-  refreshTotals();
-}
 
 function saveAndRefresh() {
   const data = getMonthData(currentMonth);

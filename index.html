@@ -43,7 +43,6 @@ body {
   overflow-x: hidden;
 }
 
-/* TOP BAR */
 .topbar {
   position: sticky; top: 0; z-index: 100;
   background: var(--bg);
@@ -60,7 +59,6 @@ body {
   cursor: pointer; display: flex; align-items: center; gap: 6px;
 }
 
-/* TABS */
 .tabs {
   display: grid; grid-template-columns: repeat(3, 1fr);
   background: var(--bg2); border-bottom: 1px solid var(--border);
@@ -74,14 +72,10 @@ body {
 .tab.active { color: var(--accent); border-color: var(--accent); }
 @media (max-width: 640px) { .tabs { display: none; } }
 
-/* CONTENT */
 .content { padding: 16px 16px calc(80px + var(--safe-bot)); }
-
-/* SECTION */
 .section { display: none; }
 .section.active { display: block; }
 
-/* CARDS */
 .card {
   background: var(--bg2); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
@@ -91,7 +85,6 @@ body {
   text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px;
 }
 
-/* SALDO BOX */
 .saldo-box {
   background: linear-gradient(135deg, #0f2a1e 0%, #0a1f35 100%);
   border: 1px solid var(--accent);
@@ -103,7 +96,6 @@ body {
 .saldo-value.negative { color: var(--danger); }
 .saldo-status { font-size: .78rem; margin-top: 8px; color: var(--muted); }
 
-/* STAT GRID */
 .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
 .stat {
   background: var(--bg2); border: 1px solid var(--border);
@@ -117,7 +109,6 @@ body {
 .stat-val.accent { color: var(--accent); }
 .stat-val.danger { color: var(--danger); }
 
-/* INPUT */
 .input-group { margin-top: 10px; }
 .input-group label { font-size: .7rem; color: var(--muted); display: block; margin-bottom: 4px; }
 .input-wrap { position: relative; }
@@ -137,7 +128,6 @@ body {
 .input-wrap.cash input:focus { border-color: var(--cash); }
 .inline-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 
-/* SALDO INIT */
 .saldo-init-row {
   display: flex; align-items: center; justify-content: space-between;
   background: var(--bg3); border: 1px solid var(--border);
@@ -150,10 +140,8 @@ body {
   text-align: right; width: 150px; -webkit-appearance: none; appearance: none;
 }
 
-/* SIGN BTN */
-.sign-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: var(--mono); font-size: 1rem; font-weight: 700; cursor: pointer; min-height: 36px; min-width: 32px; padding: 0 6px; }
+.sign-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: var(--mono); font-size: 1rem; font-weight: 700; cursor: pointer; min-height: 40px; min-width: 40px; padding: 0 8px; }
 
-/* CATEGORY ROWS */
 .category-row {
   background: var(--bg2); border: 1px solid var(--border);
   border-radius: 10px; margin-bottom: 6px; overflow: hidden;
@@ -164,11 +152,10 @@ body {
   cursor: pointer; min-height: 48px; user-select: none;
 }
 .cat-name { flex: 1; }
-.cat-total { font-family: var(--mono); font-size: .88rem; color: var(--accent); }
+.cat-total { font-family: var(--mono); font-size: .88rem; color: var(--danger); }
 .cat-body { display: none; padding: 0 14px 12px; }
 .cat-body.open { display: block; }
 
-/* VOCE ITEMS */
 .voci-list { margin-top: 6px; }
 .voce-empty { font-size: .78rem; color: var(--muted); padding: 6px 0; }
 .voce-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 8px; margin-bottom: 6px; }
@@ -176,7 +163,7 @@ body {
 .voce-desc::placeholder { color: var(--muted); }
 .voce-row { display: flex; align-items: center; gap: 6px; }
 .voce-wrap { flex: 1; position: relative; }
-.voce-wrap input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 8px 8px 24px; color: var(--text); font-family: var(--mono); font-size: .9rem; outline: none; -webkit-appearance: none; appearance: none; }
+.voce-wrap input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 8px 8px 24px; color: var(--danger); font-family: var(--mono); font-size: .9rem; outline: none; -webkit-appearance: none; appearance: none; }
 .voce-wrap .currency { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--muted); font-family: var(--mono); font-size: .82rem; pointer-events: none; }
 .tipo-btn { border: none; border-radius: 6px; padding: 8px 10px; font-size: .78rem; font-weight: 600; cursor: pointer; white-space: nowrap; min-height: 36px; }
 .tipo-carta { background: rgba(59,130,246,.18); color: var(--accent2); border: 1px solid rgba(59,130,246,.35); }
@@ -184,7 +171,6 @@ body {
 .voce-del { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25); border-radius: 6px; color: var(--danger); font-size: .9rem; cursor: pointer; padding: 0 10px; min-height: 36px; min-width: 36px; }
 .btn-add-voce { width: 100%; margin-top: 10px; background: transparent; border: 1px dashed var(--border); border-radius: 8px; color: var(--accent); font-size: .82rem; font-weight: 600; padding: 10px; cursor: pointer; }
 
-/* MONTH MODAL */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,.7);
   z-index: 200; display: none; align-items: flex-end;
@@ -200,28 +186,19 @@ body {
 .month-btn {
   background: var(--bg3); border: 1px solid var(--border);
   border-radius: 10px; padding: 14px 8px; text-align: center;
-  font-size: .88rem; font-weight: 600; cursor: pointer; transition: all .2s;
-  min-height: 48px;
+  font-size: .88rem; font-weight: 600; cursor: pointer; transition: all .2s; min-height: 48px;
 }
 .month-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 .modal-close { display: block; text-align: center; margin-top: 16px; color: var(--muted); font-size: .9rem; cursor: pointer; }
 
-/* RIEPILOGO TABLE */
 .riepilogo-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
-.riepilogo-table th {
-  font-size: .65rem; text-transform: uppercase; letter-spacing: .06em;
-  color: var(--muted); padding: 6px 8px; text-align: right; font-weight: 600;
-}
+.riepilogo-table th { font-size: .65rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 6px 8px; text-align: right; font-weight: 600; }
 .riepilogo-table th:first-child { text-align: left; }
 .riepilogo-table td { padding: 8px; border-top: 1px solid var(--border); }
 .riepilogo-table td:not(:first-child) { text-align: right; font-family: var(--mono); font-size: .82rem; }
 .riepilogo-table tr:last-child td { font-weight: 700; color: var(--accent); border-top: 2px solid var(--border); }
 
-/* BANCA TABLE */
-.banca-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 12px 0; border-bottom: 1px solid var(--border);
-}
+.banca-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .banca-row:last-child { border-bottom: none; }
 .banca-month { font-weight: 600; font-size: .9rem; }
 .banca-right { text-align: right; }
@@ -230,7 +207,6 @@ body {
 .banca-saldo.neg { color: var(--danger); }
 .banca-detail { font-size: .7rem; color: var(--muted); margin-top: 2px; }
 
-/* BOTTOM NAV */
 .bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0;
   background: var(--bg2); border-top: 1px solid var(--border);
@@ -247,7 +223,6 @@ body {
 .nav-btn.active { color: var(--accent); }
 .nav-icon { font-size: 1.4rem; line-height: 1; }
 
-/* TOAST */
 .toast {
   position: fixed; bottom: calc(70px + var(--safe-bot) + 10px); left: 50%;
   transform: translateX(-50%) translateY(20px);
@@ -259,21 +234,20 @@ body {
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* PROGRESS BAR (riepilogo) */
 .progress-bar-bg { background: var(--bg3); border-radius: 4px; height: 6px; overflow: hidden; }
 .progress-bar-fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width .4s; }
 </style>
 <script>
 (function(){
   const manifest = {
-    name: 'Spese 2026', short_name: 'Spese', description: 'Tracker spese mensili',
-    start_url: '.', display: 'standalone',
-    background_color: '#0f1923', theme_color: '#0f1923',
-    icons: [{ src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6QMCCwkV7TATAAAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAABbklEQVR42u3BMQEAAADCoPVP7WsIoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeAMBuAABHgAAAABJRU5ErkJggg==", sizes: '192x192', type: 'image/png' }]
+    name:'Spese 2026', short_name:'Spese', description:'Tracker spese mensili',
+    start_url:'.', display:'standalone',
+    background_color:'#0f1923', theme_color:'#0f1923',
+    icons:[{src:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6QMCCwkV7TATAAAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAABbklEQVR42u3BMQEAAADCoPVP7WsIoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeAMBuAABHgAAAABJRU5ErkJggg==", sizes:'192x192', type:'image/png'}]
   };
-  const blob = new Blob([JSON.stringify(manifest)], {type:'application/manifest+json'});
+  const blob = new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'});
   const link = document.createElement('link');
-  link.rel = 'manifest'; link.href = URL.createObjectURL(blob);
+  link.rel='manifest'; link.href=URL.createObjectURL(blob);
   document.head.appendChild(link);
 })();
 </script>
@@ -297,7 +271,6 @@ body {
 
   <!-- TAB SPESE -->
   <div class="section active" id="tab-spese">
-
     <div class="stat-grid">
       <div class="stat full">
         <div class="stat-label">💰 Entrate &nbsp;<span id="sum-entrate-tot" style="font-family:var(--mono);color:var(--accent);font-size:.85rem"></span></div>
@@ -335,7 +308,7 @@ body {
       </div>
       <div class="stat full">
         <div class="stat-label">Totale spese</div>
-        <div class="stat-val" id="sum-tot">€0,00</div>
+        <div class="stat-val danger" id="sum-tot">€0,00</div>
       </div>
       <div class="stat full">
         <div class="stat-label">Saldo mese (entrate − spese)</div>
@@ -345,12 +318,10 @@ body {
 
     <div style="font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:10px 0 6px">Voci di spesa</div>
     <div id="categories-container"></div>
-
   </div>
 
   <!-- TAB BANCA -->
   <div class="section" id="tab-banca">
-
     <div class="saldo-init-row">
       <div>
         <div class="stat-label" id="lbl-saldo-init">Saldo iniziale al 1° Giugno</div>
@@ -361,7 +332,8 @@ body {
         <div class="input-wrap" style="width:130px">
           <span class="currency">€</span>
           <input type="text" inputmode="decimal" class="saldo-init-input" id="inp-saldo-iniziale"
-            placeholder="0.00" oninput="saveAndRefresh()" onchange="saveAndRefresh()">
+            placeholder="0.00"
+            oninput="onSaldoInput()" onchange="onSaldoInput()">
         </div>
       </div>
     </div>
@@ -382,7 +354,6 @@ body {
       <div class="card-title">Storico mensile</div>
       <div id="banca-mesi"></div>
     </div>
-
   </div>
 
   <!-- TAB RIEPILOGO -->
@@ -438,7 +409,7 @@ function saveAll(d) { localStorage.setItem('spese2026', JSON.stringify(d)); }
 
 function getMonthData(mi) {
   const all = loadAll();
-  if (!all[mi]) all[mi] = { entrateCarta:'', entrateContanti:'', cats:{} };
+  if (!all[mi]) all[mi] = {entrateCarta:'', entrateContanti:'', cats:{}};
   if (!all[mi].cats) all[mi].cats = {};
   if (all[mi].entrate !== undefined) {
     all[mi].entrateCarta = all[mi].entrateCarta || all[mi].entrate;
@@ -461,18 +432,19 @@ function getMonthData(mi) {
 function setMonthData(mi, data) {
   const all = loadAll(); all[mi] = data; saveAll(all);
 }
-function getGlobal() {
-  return loadAll()['global'] || { saldoIniziale:'' };
-}
-function setGlobal(g) {
-  const all = loadAll(); all['global'] = g; saveAll(all);
-}
+function getGlobal() { return loadAll()['global'] || {saldoIniziale:''}; }
+function setGlobal(g) { const all = loadAll(); all['global'] = g; saveAll(all); }
 
 function fmt(n) {
-  if (isNaN(n) || n === null) return '€0,00';
-  return '€' + Number(n).toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2});
+  if (isNaN(n)||n===null) return '€0,00';
+  return '€' + Number(n).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 function val(s) { return parseFloat(String(s||'').replace(',','.')) || 0; }
+
+function isTabActive(name) {
+  const el = document.getElementById('tab-'+name);
+  return el && el.classList.contains('active');
+}
 
 function switchTab(tab) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -492,7 +464,7 @@ function openMonthModal() {
   document.getElementById('monthModal').classList.add('open');
 }
 function closeMonthModal(e) {
-  if (!e || e.target===document.getElementById('monthModal') || !e.target.closest('.modal'))
+  if (!e||e.target===document.getElementById('monthModal')||!e.target.closest('.modal'))
     document.getElementById('monthModal').classList.remove('open');
 }
 function selectMonth(i) {
@@ -500,6 +472,7 @@ function selectMonth(i) {
   document.getElementById('currentMonthLabel').textContent = MONTHS[i];
   document.getElementById('monthModal').classList.remove('open');
   renderSpese();
+  if (isTabActive('banca')) renderBanca();
 }
 
 function renderSpese() {
@@ -508,9 +481,9 @@ function renderSpese() {
   document.getElementById('inp-entrate-contanti').value = data.entrateContanti || '';
 
   const container = document.getElementById('categories-container');
-  container.innerHTML = CATEGORIES.map((cat, ci) => {
+  container.innerHTML = CATEGORIES.map((cat,ci) => {
     const items = data.cats[cat] || [];
-    const {carta, contanti} = catTotals(items);
+    const {carta,contanti} = catTotals(items);
     const tot = carta + contanti;
     return `
     <div class="category-row" id="catrow-${ci}">
@@ -537,7 +510,7 @@ function renderVoci(ci, items) {
     container.innerHTML = '<div class="voce-empty">Nessuna voce — premi + per aggiungere</div>';
     return;
   }
-  container.innerHTML = items.map((item, ii) => `
+  container.innerHTML = items.map((item,ii) => `
     <div class="voce-item">
       <input type="text" class="voce-desc" placeholder="Descrizione (opzionale)"
         value="${(item.desc||'').replace(/"/g,'&quot;')}"
@@ -563,8 +536,7 @@ function renderVoci(ci, items) {
 function toggleCat(ci) {
   const body = document.getElementById(`cat-body-${ci}`);
   const arrow = document.getElementById(`cat-arrow-${ci}`);
-  const open = body.classList.toggle('open');
-  arrow.textContent = open ? '⌄' : '›';
+  arrow.textContent = body.classList.toggle('open') ? '⌄' : '›';
 }
 
 function addVoce(ci) {
@@ -596,7 +568,7 @@ function updateVoce(ci, ii, field, value) {
   data.cats[cat][ii][field] = value;
   setMonthData(currentMonth, data);
   if (field === 'amount') {
-    const {carta, contanti} = catTotals(data.cats[cat]);
+    const {carta,contanti} = catTotals(data.cats[cat]);
     const tot = carta + contanti;
     const el = document.getElementById(`cat-tot-${ci}`);
     if (el) el.textContent = tot > 0 ? fmt(tot) : '';
@@ -610,7 +582,7 @@ function deleteVoce(ci, ii) {
   data.cats[cat].splice(ii, 1);
   setMonthData(currentMonth, data);
   renderVoci(ci, data.cats[cat]);
-  const {carta, contanti} = catTotals(data.cats[cat]);
+  const {carta,contanti} = catTotals(data.cats[cat]);
   const el = document.getElementById(`cat-tot-${ci}`);
   if (el) el.textContent = (carta+contanti) > 0 ? fmt(carta+contanti) : '';
   refreshTotals();
@@ -628,21 +600,30 @@ function toggleTipo(ci, ii) {
 function toggleSaldoSign() {
   const si  = document.getElementById('inp-saldo-iniziale');
   const btn = document.getElementById('btn-saldo-sign');
-  const n   = val(si.value);
-  const nv  = n === 0 ? '' : String(-n);
+  const nv  = val(si.value) === 0 ? '' : String(-val(si.value));
   si.value  = nv;
   if (btn) btn.textContent = nv.startsWith('-') ? '−' : '+';
   const g = getGlobal(); g.saldoIniziale = nv; setGlobal(g);
   renderBanca();
 }
 
+/* Gestisce l'input del saldo iniziale (solo nella tab banca) */
+function onSaldoInput() {
+  const si = document.getElementById('inp-saldo-iniziale');
+  if (!si) return;
+  const g = getGlobal(); g.saldoIniziale = si.value; setGlobal(g);
+  renderBanca();
+  showToast();
+}
+
+/* Gestisce l'input nelle entrate (tab spese) */
 function saveAndRefresh() {
   const data = getMonthData(currentMonth);
-  data.entrateCarta    = document.getElementById('inp-entrate-carta').value;
-  data.entrateContanti = document.getElementById('inp-entrate-contanti').value;
+  const ecEl = document.getElementById('inp-entrate-carta');
+  const enEl = document.getElementById('inp-entrate-contanti');
+  if (ecEl) data.entrateCarta    = ecEl.value;
+  if (enEl) data.entrateContanti = enEl.value;
   setMonthData(currentMonth, data);
-  const si = document.getElementById('inp-saldo-iniziale');
-  if (si) { const g = getGlobal(); g.saldoIniziale = si.value; setGlobal(g); }
   refreshTotals();
   showToast();
 }
@@ -663,11 +644,11 @@ function refreshTotals() {
     const t = catTotals(data.cats[cat]);
     carta += t.carta; contanti += t.contanti;
   });
-  const tot          = carta + contanti;
-  const entrateCarta = val(data.entrateCarta);
-  const entrateContan= val(data.entrateContanti);
-  const entrate      = entrateCarta + entrateContan;
-  const saldo        = entrate - tot;
+  const tot           = carta + contanti;
+  const entrateCarta  = val(data.entrateCarta);
+  const entrateContan = val(data.entrateContanti);
+  const entrate       = entrateCarta + entrateContan;
+  const saldo         = entrate - tot;
 
   const totEl = document.getElementById('sum-entrate-tot');
   if (totEl) totEl.textContent = entrate > 0 ? fmt(entrate) : '';
@@ -750,16 +731,13 @@ function renderBanca() {
 function renderRiepilogo() {
   let mesiHtml = '<table class="riepilogo-table"><thead><tr><th>Mese</th><th>💳 Carta</th><th>💵 Cont.</th><th>Uscite</th><th style="color:var(--accent)">Entrate</th></tr></thead><tbody>';
   let totCarta = 0, totCont = 0;
-  MONTHS.forEach((month, mi) => {
+  MONTHS.forEach((month,mi) => {
     const data = getMonthData(mi);
     let carta = 0, contanti = 0;
-    CATEGORIES.forEach(cat => {
-      const t = catTotals(data.cats[cat]);
-      carta += t.carta; contanti += t.contanti;
-    });
-    const tot = carta + contanti;
-    const entrate = val(data.entrateCarta) + val(data.entrateContanti);
-    totCarta += carta; totCont += contanti;
+    CATEGORIES.forEach(cat => { const t=catTotals(data.cats[cat]); carta+=t.carta; contanti+=t.contanti; });
+    const tot = carta+contanti;
+    const entrate = val(data.entrateCarta)+val(data.entrateContanti);
+    totCarta+=carta; totCont+=contanti;
     mesiHtml += `<tr>
       <td>${month.substring(0,3)}</td>
       <td style="color:var(--accent2)">${carta>0?fmt(carta):'—'}</td>
@@ -770,18 +748,18 @@ function renderRiepilogo() {
   });
   const totEntrate = MONTHS.reduce((s,_,mi)=>{
     const d=getMonthData(mi); return s+val(d.entrateCarta)+val(d.entrateContanti);
-  }, 0);
+  },0);
   mesiHtml += `<tr><td>Totale</td><td style="color:var(--accent2)">${fmt(totCarta)}</td><td style="color:var(--cash)">${fmt(totCont)}</td><td>${fmt(totCarta+totCont)}</td><td style="color:var(--accent)">${fmt(totEntrate)}</td></tr></tbody></table>`;
   document.getElementById('riepilogo-mesi-chart').innerHTML = mesiHtml;
 
   const catSummary = CATEGORIES.map(cat => {
-    let tot = 0;
-    MONTHS.forEach((_,mi) => { const t=catTotals(getMonthData(mi).cats[cat]); tot+=t.carta+t.contanti; });
-    return {cat, tot};
+    let tot=0;
+    MONTHS.forEach((_,mi)=>{ const t=catTotals(getMonthData(mi).cats[cat]); tot+=t.carta+t.contanti; });
+    return {cat,tot};
   }).filter(x=>x.tot>0).sort((a,b)=>b.tot-a.tot);
 
   const maxTot = catSummary.length ? catSummary[0].tot : 1;
-  const catRows = catSummary.map(({cat, tot}) => {
+  const catRows = catSummary.map(({cat,tot}) => {
     const pct = Math.round((tot/maxTot)*100);
     return `<div style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px">
@@ -804,12 +782,12 @@ function showToast() {
 
 if ('serviceWorker' in navigator) {
   const swCode = `
-const CACHE = 'spese2026-v13';
-self.addEventListener('install', e => { self.skipWaiting(); });
-self.addEventListener('activate', e => { self.clients.claim(); });
-self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });
+const CACHE='spese2026-v14';
+self.addEventListener('install',e=>{self.skipWaiting();});
+self.addEventListener('activate',e=>{self.clients.claim();});
+self.addEventListener('fetch',e=>{e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)));});
   `;
-  const blob = new Blob([swCode], {type:'application/javascript'});
+  const blob = new Blob([swCode],{type:'application/javascript'});
   navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
 }
 

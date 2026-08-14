@@ -883,7 +883,7 @@ function showToast() {
 // ── SERVICE WORKER ────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   const swCode = `
-const CACHE = 'spese2026-v16';
+const CACHE = 'spese2026-v17';
 self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => { self.clients.claim(); });
 self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });
@@ -895,6 +895,6 @@ self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() =>
 
 // ── INIT ──────────────────────────────────────────────────────────────
 renderSpese();
-<\/script>
+</script>
 </body>
 </html>

@@ -32,7 +32,7 @@
   --safe-bot:  env(safe-area-inset-bottom, 0px);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 
 body {
   font-family: var(--font);
@@ -321,7 +321,7 @@ body {
   <!-- ══ TAB: SPESE ══ -->
   <div class="section active" id="tab-spese">
 
-    <!-- Entrate + Budget -->
+    <!-- Entrate -->
     <div class="stat-grid">
       <div class="stat full">
         <div class="stat-label">💰 Entrate &nbsp;<span id="sum-entrate-tot" style="font-family:var(--mono);color:var(--accent);font-size:.85rem"></span></div>
@@ -330,23 +330,16 @@ body {
             <label>💳 Carta</label>
             <div class="input-wrap card">
               <span class="currency">€</span>
-              <input type="number" inputmode="decimal" id="inp-entrate-carta" placeholder="0.00" oninput="saveAndRefresh()">
+              <input type="text" inputmode="decimal" id="inp-entrate-carta" placeholder="0.00" oninput="saveAndRefresh()" onchange="saveAndRefresh()">
             </div>
           </div>
           <div class="input-group">
             <label>💵 Contanti</label>
             <div class="input-wrap cash">
               <span class="currency">€</span>
-              <input type="number" inputmode="decimal" id="inp-entrate-contanti" placeholder="0.00" oninput="saveAndRefresh()">
+              <input type="text" inputmode="decimal" id="inp-entrate-contanti" placeholder="0.00" oninput="saveAndRefresh()" onchange="saveAndRefresh()">
             </div>
           </div>
-        </div>
-      </div>
-      <div class="stat full">
-        <div class="stat-label">🎯 Budget</div>
-        <div class="input-wrap">
-          <span class="currency">€</span>
-          <input type="number" inputmode="decimal" id="inp-budget" placeholder="0.00" oninput="saveAndRefresh()">
         </div>
       </div>
     </div>
@@ -364,10 +357,6 @@ body {
       <div class="stat full">
         <div class="stat-label">Totale spese</div>
         <div class="stat-val" id="sum-tot">€0,00</div>
-        <div class="progress-wrap">
-          <div class="progress-bar-bg"><div class="progress-bar-fill" id="budget-bar" style="width:0%"></div></div>
-          <div class="progress-label"><span id="budget-pct">0%</span><span id="budget-status">nei limiti</span></div>
-        </div>
       </div>
       <div class="stat full">
         <div class="stat-label">Saldo mese (entrate − spese)</div>
@@ -395,7 +384,7 @@ body {
         <button class="sign-btn" id="btn-saldo-sign" onclick="toggleSaldoSign()">+</button>
         <div class="input-wrap" style="width:130px">
           <span class="currency">€</span>
-          <input type="text" inputmode="decimal" class="saldo-init-input" id="inp-saldo-iniziale" placeholder="0.00" oninput="saveAndRefresh()">
+          <input type="text" inputmode="decimal" class="saldo-init-input" id="inp-saldo-iniziale" placeholder="0.00" oninput="onSaldoIniziale()" onchange="onSaldoIniziale()">
         </div>
       </div>
     </div>
@@ -477,21 +466,17 @@ const CATEGORIES = [
 
 let currentMonth = 0; // index into MONTHS
 
-// Storage key: spese2026
-function storageKey() { return 'spese2026'; }
-
 function loadAll() {
-  try { return JSON.parse(localStorage.getItem(storageKey())) || {}; } catch { return {}; }
+  try { return JSON.parse(localStorage.getItem('spese2026')) || {}; } catch { return {}; }
 }
 function saveAll(data) {
-  localStorage.setItem(storageKey(), JSON.stringify(data));
+  localStorage.setItem('spese2026', JSON.stringify(data));
 }
 
 function getMonthData(mi) {
   const all = loadAll();
-  if (!all[mi]) all[mi] = { entrateCarta: '', entrateContanti: '', budget: '', cats: {} };
+  if (!all[mi]) all[mi] = { entrateCarta: '', entrateContanti: '', cats: {} };
   if (!all[mi].cats) all[mi].cats = {};
-  // migrate old single-field entrate
   if (all[mi].entrate !== undefined) {
     all[mi].entrateCarta = all[mi].entrateCarta || all[mi].entrate;
     delete all[mi].entrate;
@@ -573,9 +558,7 @@ function renderSpese() {
 
   document.getElementById('inp-entrate-carta').value    = data.entrateCarta    || '';
   document.getElementById('inp-entrate-contanti').value = data.entrateContanti || '';
-  document.getElementById('inp-budget').value           = data.budget          || '';
 
-  // categories
   const container = document.getElementById('categories-container');
   container.innerHTML = CATEGORIES.map((cat, ci) => {
     const items = data.cats[cat] || [];
@@ -596,7 +579,6 @@ function renderSpese() {
   }).join('');
 
   CATEGORIES.forEach((cat, ci) => renderVoci(ci, data.cats[cat] || []));
-
   refreshTotals();
 }
 
@@ -612,11 +594,10 @@ function renderVoci(ci, items) {
       <input type="text" class="voce-desc" placeholder="Descrizione (opzionale)" value="${(item.desc||'').replace(/"/g,'&quot;')}"
         oninput="updateVoce(${ci},${ii},'desc',this.value)">
       <div class="voce-row">
-        <button class="sign-btn" onclick="toggleSign(${ci},${ii})">${(item.amount||'').startsWith('-')?'−':'+'}</button>
         <div class="voce-wrap">
           <span class="currency">€</span>
           <input type="text" inputmode="decimal" placeholder="0.00" value="${item.amount||''}"
-            oninput="updateVoce(${ci},${ii},'amount',this.value)">
+            oninput="updateVoce(${ci},${ii},'amount',this.value)" onchange="updateVoce(${ci},${ii},'amount',this.value)">
         </div>
         <button class="tipo-btn ${item.tipo==='carta'?'tipo-carta':'tipo-cash'}" onclick="toggleTipo(${ci},${ii})">
           ${item.tipo==='carta'?'💳 Carta':'💵 Contanti'}
@@ -704,34 +685,21 @@ function toggleSaldoSign() {
   renderBanca();
 }
 
-function toggleSign(ci, ii) {
-  const cat  = CATEGORIES[ci];
-  const data = getMonthData(currentMonth);
-  const item = data.cats[cat][ii];
-  const n    = val(item.amount);
-  item.amount = n === 0 ? '' : String(-n);
-  setMonthData(currentMonth, data);
-  renderVoci(ci, data.cats[cat]);
-  const { carta, contanti } = catTotals(data.cats[cat]);
-  const tot = carta + contanti;
-  const el  = document.getElementById(`cat-tot-${ci}`);
-  if (el) el.textContent = tot > 0 ? fmt(tot) : '';
-  refreshTotals();
-}
-
 function saveAndRefresh() {
   const data = getMonthData(currentMonth);
   data.entrateCarta    = document.getElementById('inp-entrate-carta').value;
   data.entrateContanti = document.getElementById('inp-entrate-contanti').value;
-  data.budget          = document.getElementById('inp-budget').value;
   setMonthData(currentMonth, data);
-
-  // global saldo iniziale
-  const si = document.getElementById('inp-saldo-iniziale');
-  if (si) {
-    const g = getGlobal(); g.saldoIniziale = si.value; setGlobal(g);
-  }
   refreshTotals();
+  showToast();
+}
+
+function onSaldoIniziale() {
+  const si = document.getElementById('inp-saldo-iniziale');
+  const g = getGlobal();
+  g.saldoIniziale = si ? si.value : '';
+  setGlobal(g);
+  renderBanca();
   showToast();
 }
 
@@ -756,7 +724,6 @@ function refreshTotals() {
   const entrateCarta   = val(data.entrateCarta);
   const entrateContan  = val(data.entrateContanti);
   const entrate        = entrateCarta + entrateContan;
-  const budget         = val(data.budget);
   const saldo          = entrate - tot;
 
   const totEl = document.getElementById('sum-entrate-tot');
@@ -768,14 +735,6 @@ function refreshTotals() {
   const saldoEl = document.getElementById('sum-saldo');
   saldoEl.textContent = fmt(saldo);
   saldoEl.className   = 'stat-val ' + (saldo >= 0 ? 'accent' : 'danger');
-
-  // budget bar
-  const pct = budget > 0 ? Math.min((tot / budget) * 100, 100) : 0;
-  const bar = document.getElementById('budget-bar');
-  bar.style.width = pct + '%';
-  bar.className   = 'progress-bar-fill' + (tot > budget && budget > 0 ? ' over' : '');
-  document.getElementById('budget-pct').textContent    = Math.round(pct) + '%';
-  document.getElementById('budget-status').textContent = (tot > budget && budget > 0) ? '⚠ budget superato' : 'nei limiti';
 }
 
 // ── RENDER BANCA ──────────────────────────────────────────────────────
@@ -788,14 +747,11 @@ function renderBanca() {
     if (btn) btn.textContent = String(g.saldoIniziale||'').startsWith('-') ? '−' : '+';
   }
 
-  // Carta: Giugno parte da saldoIniziale; da Luglio in poi si azzera ogni mese
-  // Contanti: cumulativo mese per mese
   let saldoCarta = val(g.saldoIniziale);
   let saldoCash  = 0;
   let html       = '';
 
   MONTHS.forEach((month, mi) => {
-    // Da Luglio (mi >= 1) la carta riparte da zero ogni mese
     if (mi >= 1) saldoCarta = 0;
 
     const data = getMonthData(mi);
@@ -809,7 +765,7 @@ function renderBanca() {
     const entrateContan = val(data.entrateContanti);
 
     saldoCarta += entrateCarta - carta;
-    saldoCash  += entrateContan - contanti;  // cumulativo
+    saldoCash  += entrateContan - contanti;
 
     const clsCarta = saldoCarta >= 0 ? 'pos' : 'neg';
     const clsCash  = saldoCash  >= 0 ? 'pos' : 'neg';
@@ -837,7 +793,6 @@ function renderBanca() {
 
   document.getElementById('banca-mesi').innerHTML = html;
 
-  // Aggiorna riquadri in cima
   const saEl = document.getElementById('banca-saldo-attuale');
   saEl.textContent = fmt(saldoCarta);
   saEl.className   = 'saldo-value' + (saldoCarta < 0 ? ' negative' : '');
@@ -854,7 +809,6 @@ function renderBanca() {
 
 // ── RENDER RIEPILOGO ──────────────────────────────────────────────────
 function renderRiepilogo() {
-  // per mese
   let mesiHtml = '<table class="riepilogo-table"><thead><tr><th>Mese</th><th>💳 Carta</th><th>💵 Cont.</th><th>Uscite</th><th style="color:var(--accent)">Entrate</th></tr></thead><tbody>';
   let totCarta = 0, totCont = 0;
 
@@ -890,7 +844,6 @@ function renderRiepilogo() {
   </tr></tbody></table>`;
   document.getElementById('riepilogo-mesi-chart').innerHTML = mesiHtml;
 
-  // per categoria
   let catRows = '';
   const catSummary = CATEGORIES.map(cat => {
     let tot = 0;
@@ -930,7 +883,7 @@ function showToast() {
 // ── SERVICE WORKER ────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   const swCode = `
-const CACHE = 'spese2026-v11';
+const CACHE = 'spese2026-v17';
 self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => { self.clients.claim(); });
 self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });

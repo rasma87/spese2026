@@ -749,6 +749,7 @@ function renderBanca() {
 
   let saldoCarta = val(g.saldoIniziale);
   let saldoCash  = 0;
+  let saldoCartaCorrente = 0;
   let html       = '';
 
   MONTHS.forEach((month, mi) => {
@@ -766,6 +767,7 @@ function renderBanca() {
 
     saldoCarta += entrateCarta - carta;
     saldoCash  += entrateContan - contanti;
+    if (mi === currentMonth) saldoCartaCorrente = saldoCarta;
 
     const clsCarta = saldoCarta >= 0 ? 'pos' : 'neg';
     const clsCash  = saldoCash  >= 0 ? 'pos' : 'neg';
@@ -794,9 +796,9 @@ function renderBanca() {
   document.getElementById('banca-mesi').innerHTML = html;
 
   const saEl = document.getElementById('banca-saldo-attuale');
-  saEl.textContent = fmt(saldoCarta);
-  saEl.className   = 'saldo-value' + (saldoCarta < 0 ? ' negative' : '');
-  document.getElementById('banca-status').textContent = saldoCarta >= 0 ? '✅ Saldo positivo' : '⚠️ Attenzione: saldo negativo!';
+  saEl.textContent = fmt(saldoCartaCorrente);
+  saEl.className   = 'saldo-value' + (saldoCartaCorrente < 0 ? ' negative' : '');
+  document.getElementById('banca-status').textContent = saldoCartaCorrente >= 0 ? '✅ Saldo positivo' : '⚠️ Attenzione: saldo negativo!';
 
   const lblCarta = document.getElementById('lbl-saldo-carta');
   if (lblCarta) lblCarta.textContent = 'Saldo carta — ' + MONTHS[currentMonth] + ' (si azzera ogni mese)';
@@ -883,7 +885,7 @@ function showToast() {
 // ── SERVICE WORKER ────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   const swCode = `
-const CACHE = 'spese2026-v17';
+const CACHE = 'spese2026-v18';
 self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => { self.clients.claim(); });
 self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });

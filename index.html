@@ -270,50 +270,25 @@ body {
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ── PROGRESS BAR ── */
-.progress-wrap { margin-top: 8px; }
 .progress-bar-bg { background: var(--bg3); border-radius: 4px; height: 6px; overflow: hidden; }
 .progress-bar-fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width .4s; }
-.progress-bar-fill.over { background: var(--danger); }
-.progress-label { display: flex; justify-content: space-between; font-size: .68rem; color: var(--muted); margin-top: 4px; }
 </style>
-<script>
-(function(){
-  const manifest = {
-    name: 'Spese 2026',
-    short_name: 'Spese',
-    description: 'Tracker spese mensili',
-    start_url: '.',
-    display: 'standalone',
-    background_color: '#0f1923',
-    theme_color: '#0f1923',
-    icons: [{
-      src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6QMCCwkV7TATAAAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAABbklEQVR42u3BMQEAAADCoPVP7WsIoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeAMBuAABHgAAAABJRU5ErkJggg==",
-      sizes: '192x192', type: 'image/png'
-    }]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('link');
-  link.rel = 'manifest'; link.href = url;
-  document.head.appendChild(link);
-})();
-</script>
 </head>
 <body>
 
 <!-- TOP BAR -->
 <div class="topbar">
   <h1>Spese <span>2026</span></h1>
-  <div class="month-pill" onclick="openMonthModal()">
+  <div class="month-pill" data-action="open-month-modal">
     <span id="currentMonthLabel">Giugno</span> ▾
   </div>
 </div>
 
-<!-- TABS (desktop-style, synced with bottom nav) -->
+<!-- TABS (desktop, sincronizzate con la bottom nav) -->
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('spese')">📝 Spese</div>
-  <div class="tab" onclick="switchTab('banca')">🏦 Banca</div>
-  <div class="tab" onclick="switchTab('riepilogo')">📊 Riepilogo</div>
+  <div class="tab active" data-action="switch-tab" data-tab="spese">📝 Spese</div>
+  <div class="tab" data-action="switch-tab" data-tab="banca">🏦 Banca</div>
+  <div class="tab" data-action="switch-tab" data-tab="riepilogo">📊 Riepilogo</div>
 </div>
 
 <div class="content">
@@ -330,14 +305,14 @@ body {
             <label>💳 Carta</label>
             <div class="input-wrap card">
               <span class="currency">€</span>
-              <input type="text" inputmode="decimal" id="inp-entrate-carta" placeholder="0.00" oninput="saveAndRefresh()" onchange="saveAndRefresh()">
+              <input type="text" inputmode="decimal" id="inp-entrate-carta" data-field="entrate-carta" placeholder="0.00" autocomplete="off">
             </div>
           </div>
           <div class="input-group">
             <label>💵 Contanti</label>
             <div class="input-wrap cash">
               <span class="currency">€</span>
-              <input type="text" inputmode="decimal" id="inp-entrate-contanti" placeholder="0.00" oninput="saveAndRefresh()" onchange="saveAndRefresh()">
+              <input type="text" inputmode="decimal" id="inp-entrate-contanti" data-field="entrate-contanti" placeholder="0.00" autocomplete="off">
             </div>
           </div>
         </div>
@@ -381,10 +356,10 @@ body {
         <div style="font-size:.72rem;color:var(--muted);margin-top:2px;">modifica se cambia</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
-        <button class="sign-btn" id="btn-saldo-sign" onclick="toggleSaldoSign()">+</button>
+        <button class="sign-btn" id="btn-saldo-sign" data-action="toggle-saldo-sign">+</button>
         <div class="input-wrap" style="width:130px">
           <span class="currency">€</span>
-          <input type="text" inputmode="decimal" class="saldo-init-input" id="inp-saldo-iniziale" placeholder="0.00" oninput="onSaldoIniziale()" onchange="onSaldoIniziale()">
+          <input type="text" inputmode="decimal" class="saldo-init-input" id="inp-saldo-iniziale" data-field="saldo-iniziale" placeholder="0.00" autocomplete="off">
         </div>
       </div>
     </div>
@@ -414,13 +389,11 @@ body {
   <!-- ══ TAB: RIEPILOGO ══ -->
   <div class="section" id="tab-riepilogo">
 
-    <!-- Totali per mese -->
     <div class="card">
       <div class="card-title">Spese per mese</div>
       <div id="riepilogo-mesi-chart"></div>
     </div>
 
-    <!-- Totali per categoria -->
     <div class="card">
       <div class="card-title">Totale per categoria (tutti i mesi)</div>
       <div id="riepilogo-categorie"></div>
@@ -432,23 +405,23 @@ body {
 
 <!-- BOTTOM NAV -->
 <div class="bottom-nav">
-  <div class="nav-btn active" id="nav-spese" onclick="switchTab('spese')">
+  <div class="nav-btn active" id="nav-spese" data-action="switch-tab" data-tab="spese">
     <span class="nav-icon">📝</span>Spese
   </div>
-  <div class="nav-btn" id="nav-banca" onclick="switchTab('banca')">
+  <div class="nav-btn" id="nav-banca" data-action="switch-tab" data-tab="banca">
     <span class="nav-icon">🏦</span>Banca
   </div>
-  <div class="nav-btn" id="nav-riepilogo" onclick="switchTab('riepilogo')">
+  <div class="nav-btn" id="nav-riepilogo" data-action="switch-tab" data-tab="riepilogo">
     <span class="nav-icon">📊</span>Riepilogo
   </div>
 </div>
 
 <!-- MONTH MODAL -->
-<div class="modal-overlay" id="monthModal" onclick="closeMonthModal(event)">
+<div class="modal-overlay" id="monthModal">
   <div class="modal">
     <h3>Seleziona mese</h3>
     <div class="month-grid" id="monthGrid"></div>
-    <div class="modal-close" onclick="closeMonthModal()">Chiudi</div>
+    <div class="modal-close" data-action="close-month-modal">Chiudi</div>
   </div>
 </div>
 
@@ -456,446 +429,434 @@ body {
 <div class="toast" id="toast">✓ Salvato</div>
 
 <script>
-// ── DATA ──────────────────────────────────────────────────────────────
-const MONTHS = ['Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
-const CATEGORIES = [
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════════════
+   DATI — tutto lo stato vive in memoria (S); localStorage è solo il
+   salvataggio persistente. Nessuna lettura da localStorage durante l'uso.
+   ══════════════════════════════════════════════════════════════════════ */
+var MONTHS = ['Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+var CATEGORIES = [
   'Affitto/Mutuo','Spesa alimentare','Ristoranti/Bar','Trasporti',
   'Carburante','Abbigliamento','Salute/Farmacia','Sport/Benessere',
   'Intrattenimento','Abbonamenti','Istruzione','Regali','Altro'
 ];
+var STORAGE_KEY = 'spese2026';
 
-let currentMonth = 0; // index into MONTHS
+var currentMonth = 0;
+var S = loadState();   // stato globale in memoria
 
-function loadAll() {
-  try { return JSON.parse(localStorage.getItem('spese2026')) || {}; } catch { return {}; }
-}
-function saveAll(data) {
-  localStorage.setItem('spese2026', JSON.stringify(data));
-}
-
-function getMonthData(mi) {
-  const all = loadAll();
-  if (!all[mi]) all[mi] = { entrateCarta: '', entrateContanti: '', cats: {} };
-  if (!all[mi].cats) all[mi].cats = {};
-  if (all[mi].entrate !== undefined) {
-    all[mi].entrateCarta = all[mi].entrateCarta || all[mi].entrate;
-    delete all[mi].entrate;
-    saveAll(all);
-  }
-  if (all[mi].entrateCarta === undefined) all[mi].entrateCarta = '';
-  if (all[mi].entrateContanti === undefined) all[mi].entrateContanti = '';
-  CATEGORIES.forEach(c => {
-    const existing = all[mi].cats[c];
-    if (!existing) {
-      all[mi].cats[c] = [];
-    } else if (!Array.isArray(existing)) {
-      const items = [];
-      if (val(existing.carta) > 0) items.push({ desc: '', amount: existing.carta, tipo: 'carta' });
-      if (val(existing.contanti) > 0) items.push({ desc: '', amount: existing.contanti, tipo: 'contanti' });
-      all[mi].cats[c] = items;
+function loadState() {
+  var raw = {};
+  try { raw = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (e) { raw = {}; }
+  var s = { global: { saldoIniziale: '' }, months: [] };
+  if (raw.global && typeof raw.global.saldoIniziale === 'string') s.global.saldoIniziale = raw.global.saldoIniziale;
+  for (var mi = 0; mi < MONTHS.length; mi++) {
+    var m = raw[mi] || {};
+    var month = { entrateCarta: '', entrateContanti: '', cats: {} };
+    // migrazione vecchio campo unico "entrate"
+    if (typeof m.entrate === 'string' && m.entrate) month.entrateCarta = m.entrate;
+    if (typeof m.entrateCarta === 'string') month.entrateCarta = m.entrateCarta;
+    if (typeof m.entrateContanti === 'string') month.entrateContanti = m.entrateContanti;
+    var cats = m.cats || {};
+    for (var c = 0; c < CATEGORIES.length; c++) {
+      var name = CATEGORIES[c];
+      var items = cats[name];
+      if (Array.isArray(items)) {
+        month.cats[name] = items.map(function (it) {
+          return {
+            desc:   typeof it.desc   === 'string' ? it.desc   : '',
+            amount: typeof it.amount === 'string' ? it.amount : String(it.amount || ''),
+            tipo:   it.tipo === 'contanti' ? 'contanti' : 'carta'
+          };
+        });
+      } else if (items && typeof items === 'object') {
+        // migrazione vecchio formato {carta, contanti}
+        var arr = [];
+        if (num(items.carta) > 0)    arr.push({ desc: '', amount: String(items.carta),    tipo: 'carta' });
+        if (num(items.contanti) > 0) arr.push({ desc: '', amount: String(items.contanti), tipo: 'contanti' });
+        month.cats[name] = arr;
+      } else {
+        month.cats[name] = [];
+      }
     }
-  });
-  return all[mi];
+    s.months.push(month);
+  }
+  return s;
 }
 
-function setMonthData(mi, data) {
-  const all = loadAll();
-  all[mi] = data;
-  saveAll(all);
+function persist() {
+  try {
+    var out = { global: S.global };
+    for (var mi = 0; mi < S.months.length; mi++) out[mi] = S.months[mi];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(out));
+  } catch (e) { /* quota piena o storage bloccato: i dati restano comunque in memoria */ }
 }
 
-function getGlobal() {
-  const all = loadAll();
-  return all['global'] || { saldoIniziale: '' };
+/* ── UTIL ─────────────────────────────────────────────────────────── */
+function num(x) {
+  var n = parseFloat(String(x == null ? '' : x).replace(',', '.'));
+  return isFinite(n) ? n : 0;
 }
-function setGlobal(g) {
-  const all = loadAll();
-  all['global'] = g;
-  saveAll(all);
-}
-
-// ── FORMAT ────────────────────────────────────────────────────────────
 function fmt(n) {
-  if (isNaN(n) || n === null) return '€0,00';
-  return '€' + Number(n).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (!isFinite(n)) n = 0;
+  return '€' + n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-function val(str) { return parseFloat(String(str).replace(',', '.')) || 0; }
-
-// ── TABS ──────────────────────────────────────────────────────────────
-function switchTab(tab) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
-  document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
-  document.getElementById('nav-' + tab).classList.add('active');
-  if (tab === 'banca') renderBanca();
-  if (tab === 'riepilogo') renderRiepilogo();
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
-// ── MONTH MODAL ───────────────────────────────────────────────────────
-function openMonthModal() {
-  const grid = document.getElementById('monthGrid');
-  grid.innerHTML = MONTHS.map((m, i) =>
-    `<div class="month-btn ${i===currentMonth?'active':''}" onclick="selectMonth(${i})">${m}</div>`
-  ).join('');
-  document.getElementById('monthModal').classList.add('open');
-}
-function closeMonthModal(e) {
-  if (!e || e.target === document.getElementById('monthModal') || !e.target.closest('.modal'))
-    document.getElementById('monthModal').classList.remove('open');
-}
-function selectMonth(i) {
-  currentMonth = i;
-  document.getElementById('currentMonthLabel').textContent = MONTHS[i];
-  document.getElementById('monthModal').classList.remove('open');
-  renderSpese();
-}
-
-// ── RENDER SPESE ──────────────────────────────────────────────────────
-function renderSpese() {
-  const data = getMonthData(currentMonth);
-
-  document.getElementById('inp-entrate-carta').value    = data.entrateCarta    || '';
-  document.getElementById('inp-entrate-contanti').value = data.entrateContanti || '';
-
-  const container = document.getElementById('categories-container');
-  container.innerHTML = CATEGORIES.map((cat, ci) => {
-    const items = data.cats[cat] || [];
-    const { carta, contanti } = catTotals(items);
-    const tot = carta + contanti;
-    return `
-    <div class="category-row" id="catrow-${ci}">
-      <div class="cat-header" onclick="toggleCat(${ci})">
-        <span class="cat-name">${cat}</span>
-        <span class="cat-total" id="cat-tot-${ci}">${tot > 0 ? fmt(tot) : ''}</span>
-        <span style="color:var(--muted);margin-left:8px;font-size:.8rem" id="cat-arrow-${ci}">›</span>
-      </div>
-      <div class="cat-body" id="cat-body-${ci}">
-        <div class="voci-list" id="voci-${ci}"></div>
-        <button class="btn-add-voce" onclick="addVoce(${ci})">+ Aggiungi voce</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  CATEGORIES.forEach((cat, ci) => renderVoci(ci, data.cats[cat] || []));
-  refreshTotals();
-}
-
-function renderVoci(ci, items) {
-  const container = document.getElementById(`voci-${ci}`);
-  if (!container) return;
-  if (!items.length) {
-    container.innerHTML = '<div class="voce-empty">Nessuna voce — premi + per aggiungere</div>';
-    return;
-  }
-  container.innerHTML = items.map((item, ii) => `
-    <div class="voce-item">
-      <input type="text" class="voce-desc" placeholder="Descrizione (opzionale)" value="${(item.desc||'').replace(/"/g,'&quot;')}"
-        oninput="updateVoce(${ci},${ii},'desc',this.value)">
-      <div class="voce-row">
-        <div class="voce-wrap">
-          <span class="currency">€</span>
-          <input type="text" inputmode="decimal" placeholder="0.00" value="${item.amount||''}"
-            oninput="updateVoce(${ci},${ii},'amount',this.value)" onchange="updateVoce(${ci},${ii},'amount',this.value)">
-        </div>
-        <button class="tipo-btn ${item.tipo==='carta'?'tipo-carta':'tipo-cash'}" onclick="toggleTipo(${ci},${ii})">
-          ${item.tipo==='carta'?'💳 Carta':'💵 Contanti'}
-        </button>
-        <button class="voce-del" onclick="deleteVoce(${ci},${ii})">✕</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-function toggleCat(ci) {
-  const body  = document.getElementById(`cat-body-${ci}`);
-  const arrow = document.getElementById(`cat-arrow-${ci}`);
-  const open  = body.classList.toggle('open');
-  arrow.textContent = open ? '⌄' : '›';
-}
-
-function addVoce(ci) {
-  const cat  = CATEGORIES[ci];
-  const data = getMonthData(currentMonth);
-  if (!Array.isArray(data.cats[cat])) data.cats[cat] = [];
-  data.cats[cat].push({ desc: '', amount: '', tipo: 'carta' });
-  setMonthData(currentMonth, data);
-  const body  = document.getElementById(`cat-body-${ci}`);
-  const arrow = document.getElementById(`cat-arrow-${ci}`);
-  if (body && !body.classList.contains('open')) {
-    body.classList.add('open');
-    if (arrow) arrow.textContent = '⌄';
-  }
-  renderVoci(ci, data.cats[cat]);
-  refreshTotals();
-  setTimeout(() => {
-    const list   = document.getElementById(`voci-${ci}`);
-    const inputs = list?.querySelectorAll('.voce-desc');
-    inputs?.[inputs.length - 1]?.focus();
-  }, 50);
-}
-
-function updateVoce(ci, ii, field, value) {
-  const cat  = CATEGORIES[ci];
-  const data = getMonthData(currentMonth);
-  if (!Array.isArray(data.cats[cat])) data.cats[cat] = [];
-  if (!data.cats[cat][ii]) return;
-  data.cats[cat][ii][field] = value;
-  setMonthData(currentMonth, data);
-  if (field === 'amount') {
-    const { carta, contanti } = catTotals(data.cats[cat]);
-    const tot = carta + contanti;
-    const el  = document.getElementById(`cat-tot-${ci}`);
-    if (el) el.textContent = tot > 0 ? fmt(tot) : '';
-    refreshTotals();
-  }
-}
-
-function deleteVoce(ci, ii) {
-  const cat  = CATEGORIES[ci];
-  const data = getMonthData(currentMonth);
-  data.cats[cat].splice(ii, 1);
-  setMonthData(currentMonth, data);
-  renderVoci(ci, data.cats[cat]);
-  const { carta, contanti } = catTotals(data.cats[cat]);
-  const tot = carta + contanti;
-  const el  = document.getElementById(`cat-tot-${ci}`);
-  if (el) el.textContent = tot > 0 ? fmt(tot) : '';
-  refreshTotals();
-}
-
-function toggleTipo(ci, ii) {
-  const cat  = CATEGORIES[ci];
-  const data = getMonthData(currentMonth);
-  data.cats[cat][ii].tipo = data.cats[cat][ii].tipo === 'carta' ? 'contanti' : 'carta';
-  setMonthData(currentMonth, data);
-  renderVoci(ci, data.cats[cat]);
-  refreshTotals();
-}
-
-function toggleSaldoSign() {
-  const si  = document.getElementById('inp-saldo-iniziale');
-  const btn = document.getElementById('btn-saldo-sign');
-  const n   = val(si.value);
-  const newVal = n === 0 ? '' : String(-n);
-  si.value = newVal;
-  if (btn) btn.textContent = newVal.startsWith('-') ? '−' : '+';
-  const g = getGlobal(); g.saldoIniziale = newVal; setGlobal(g);
-  renderBanca();
-}
-
-function saveAndRefresh() {
-  const data = getMonthData(currentMonth);
-  data.entrateCarta    = document.getElementById('inp-entrate-carta').value;
-  data.entrateContanti = document.getElementById('inp-entrate-contanti').value;
-  setMonthData(currentMonth, data);
-  refreshTotals();
-  showToast();
-}
-
-function onSaldoIniziale() {
-  const si = document.getElementById('inp-saldo-iniziale');
-  const g = getGlobal();
-  g.saldoIniziale = si ? si.value : '';
-  setGlobal(g);
-  renderBanca();
-  showToast();
-}
+function el(id) { return document.getElementById(id); }
 
 function catTotals(items) {
-  let carta = 0, contanti = 0;
-  (Array.isArray(items) ? items : []).forEach(it => {
-    if (it.tipo === 'carta') carta += val(it.amount);
-    else contanti += val(it.amount);
-  });
-  return { carta, contanti };
+  var carta = 0, contanti = 0;
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].tipo === 'carta') carta += num(items[i].amount);
+    else contanti += num(items[i].amount);
+  }
+  return { carta: carta, contanti: contanti };
 }
 
-function refreshTotals() {
-  const data   = getMonthData(currentMonth);
-  let carta    = 0, contanti = 0;
-  CATEGORIES.forEach(cat => {
-    const t = catTotals(data.cats[cat]);
-    carta    += t.carta;
+function monthTotals(mi) {
+  var m = S.months[mi];
+  var carta = 0, contanti = 0;
+  for (var c = 0; c < CATEGORIES.length; c++) {
+    var t = catTotals(m.cats[CATEGORIES[c]]);
+    carta += t.carta;
     contanti += t.contanti;
-  });
-  const tot            = carta + contanti;
-  const entrateCarta   = val(data.entrateCarta);
-  const entrateContan  = val(data.entrateContanti);
-  const entrate        = entrateCarta + entrateContan;
-  const saldo          = entrate - tot;
-
-  const totEl = document.getElementById('sum-entrate-tot');
-  if (totEl) totEl.textContent = entrate > 0 ? fmt(entrate) : '';
-
-  document.getElementById('sum-carta').textContent    = fmt(carta);
-  document.getElementById('sum-contanti').textContent = fmt(contanti);
-  document.getElementById('sum-tot').textContent      = fmt(tot);
-  const saldoEl = document.getElementById('sum-saldo');
-  saldoEl.textContent = fmt(saldo);
-  saldoEl.className   = 'stat-val ' + (saldo >= 0 ? 'accent' : 'danger');
+  }
+  return {
+    carta: carta,
+    contanti: contanti,
+    entrateCarta: num(m.entrateCarta),
+    entrateContanti: num(m.entrateContanti)
+  };
 }
 
-// ── RENDER BANCA ──────────────────────────────────────────────────────
-function renderBanca() {
-  const g  = getGlobal();
-  const si = document.getElementById('inp-saldo-iniziale');
-  if (si) {
-    si.value = g.saldoIniziale || '';
-    const btn = document.getElementById('btn-saldo-sign');
-    if (btn) btn.textContent = String(g.saldoIniziale||'').startsWith('-') ? '−' : '+';
+/* ══════════════════════════════════════════════════════════════════════
+   AGGIORNAMENTO TOTALI — ricalcola e aggiorna TUTTI i riquadri di tutte
+   le schede a ogni modifica, così qualunque schermata è sempre allineata.
+   Non tocca mai gli <input>, quindi non interrompe la digitazione.
+   ══════════════════════════════════════════════════════════════════════ */
+function updateAllTotals() {
+  /* — Scheda Spese (mese corrente) — */
+  var t = monthTotals(currentMonth);
+  var tot = t.carta + t.contanti;
+  var entrate = t.entrateCarta + t.entrateContanti;
+  var saldo = entrate - tot;
+
+  el('sum-entrate-tot').textContent = entrate > 0 ? fmt(entrate) : '';
+  el('sum-carta').textContent = fmt(t.carta);
+  el('sum-contanti').textContent = fmt(t.contanti);
+  el('sum-tot').textContent = fmt(tot);
+  var saldoEl = el('sum-saldo');
+  saldoEl.textContent = fmt(saldo);
+  saldoEl.className = 'stat-val ' + (saldo >= 0 ? 'accent' : 'danger');
+
+  // totali per categoria (intestazioni chiuse/aperte)
+  for (var ci = 0; ci < CATEGORIES.length; ci++) {
+    var ct = catTotals(S.months[currentMonth].cats[CATEGORIES[ci]]);
+    var sum = ct.carta + ct.contanti;
+    var ctEl = el('cat-tot-' + ci);
+    if (ctEl) ctEl.textContent = sum > 0 ? fmt(sum) : '';
   }
 
-  let saldoCarta = val(g.saldoIniziale);
-  let saldoCash  = 0;
-  let saldoCartaCorrente = 0;
-  let html       = '';
+  /* — Scheda Banca —
+     Carta: Giugno parte dal saldo iniziale, da Luglio riparte da zero.
+     Contanti: cumulativi su tutti i mesi. */
+  var saldoCarta = num(S.global.saldoIniziale);
+  var saldoCash = 0;
+  var saldoCartaCorrente = 0;
+  var html = '';
 
-  MONTHS.forEach((month, mi) => {
+  for (var mi = 0; mi < MONTHS.length; mi++) {
     if (mi >= 1) saldoCarta = 0;
-
-    const data = getMonthData(mi);
-    let carta = 0, contanti = 0;
-    CATEGORIES.forEach(cat => {
-      const t = catTotals(data.cats[cat]);
-      carta    += t.carta;
-      contanti += t.contanti;
-    });
-    const entrateCarta  = val(data.entrateCarta);
-    const entrateContan = val(data.entrateContanti);
-
-    saldoCarta += entrateCarta - carta;
-    saldoCash  += entrateContan - contanti;
+    var mt = monthTotals(mi);
+    saldoCarta += mt.entrateCarta - mt.carta;
+    saldoCash += mt.entrateContanti - mt.contanti;
     if (mi === currentMonth) saldoCartaCorrente = saldoCarta;
 
-    const clsCarta = saldoCarta >= 0 ? 'pos' : 'neg';
-    const clsCash  = saldoCash  >= 0 ? 'pos' : 'neg';
-    const resetLabel = mi >= 1 ? '<span style="font-size:.65rem;color:var(--muted);margin-left:4px">(azzerato)</span>' : '';
+    html += '<div class="banca-row"><div>' +
+      '<div class="banca-month">' + MONTHS[mi] + '</div>' +
+      '<div class="banca-detail"><span style="color:var(--accent)">+' + fmt(mt.entrateCarta) + '</span> carta &nbsp;·&nbsp; <span style="color:var(--accent2)">−' + fmt(mt.carta) + '</span> spese carta</div>' +
+      '<div class="banca-detail" style="margin-top:2px"><span style="color:var(--cash)">+' + fmt(mt.entrateContanti) + '</span> contanti &nbsp;·&nbsp; <span style="color:var(--cash);opacity:.7">−' + fmt(mt.contanti) + '</span> spese cash</div>' +
+      '</div><div class="banca-right">' +
+      '<div class="banca-saldo ' + (saldoCarta >= 0 ? 'pos' : 'neg') + '">💳 ' + fmt(saldoCarta) + (mi >= 1 ? ' <span style="font-size:.65rem;color:var(--muted)">(azzerato)</span>' : '') + '</div>' +
+      '<div class="banca-saldo ' + (saldoCash >= 0 ? 'pos' : 'neg') + '" style="font-size:.88rem;margin-top:4px">💵 ' + fmt(saldoCash) + '</div>' +
+      '</div></div>';
+  }
+  el('banca-mesi').innerHTML = html;
 
-    html += `
-      <div class="banca-row">
-        <div>
-          <div class="banca-month">${month}</div>
-          <div class="banca-detail">
-            <span style="color:var(--accent)">+${fmt(entrateCarta)}</span> carta &nbsp;·&nbsp;
-            <span style="color:var(--accent2)">−${fmt(carta)}</span> spese carta
-          </div>
-          <div class="banca-detail" style="margin-top:2px">
-            <span style="color:var(--cash)">+${fmt(entrateContan)}</span> contanti &nbsp;·&nbsp;
-            <span style="color:var(--cash);opacity:.7">−${fmt(contanti)}</span> spese cash
-          </div>
-        </div>
-        <div class="banca-right">
-          <div class="banca-saldo ${clsCarta}">💳 ${fmt(saldoCarta)}${resetLabel}</div>
-          <div class="banca-saldo ${clsCash}" style="font-size:.88rem;margin-top:4px">💵 ${fmt(saldoCash)}</div>
-        </div>
-      </div>`;
-  });
-
-  document.getElementById('banca-mesi').innerHTML = html;
-
-  const saEl = document.getElementById('banca-saldo-attuale');
+  var saEl = el('banca-saldo-attuale');
   saEl.textContent = fmt(saldoCartaCorrente);
-  saEl.className   = 'saldo-value' + (saldoCartaCorrente < 0 ? ' negative' : '');
-  document.getElementById('banca-status').textContent = saldoCartaCorrente >= 0 ? '✅ Saldo positivo' : '⚠️ Attenzione: saldo negativo!';
+  saEl.className = 'saldo-value' + (saldoCartaCorrente < 0 ? ' negative' : '');
+  el('banca-status').textContent = saldoCartaCorrente >= 0 ? '✅ Saldo positivo' : '⚠️ Attenzione: saldo negativo!';
+  el('lbl-saldo-carta').textContent = 'Saldo carta — ' + MONTHS[currentMonth] + (currentMonth >= 1 ? ' (azzerato a inizio mese)' : '');
 
-  const lblCarta = document.getElementById('lbl-saldo-carta');
-  if (lblCarta) lblCarta.textContent = 'Saldo carta — ' + MONTHS[currentMonth] + ' (si azzera ogni mese)';
-
-  const cashEl = document.getElementById('cash-residui');
+  var cashEl = el('cash-residui');
   cashEl.textContent = fmt(saldoCash);
   cashEl.style.color = saldoCash >= 0 ? 'var(--cash)' : 'var(--danger)';
-  document.getElementById('cash-status').textContent = saldoCash >= 0 ? '✅ Contanti disponibili' : '⚠️ Contanti esauriti!';
+  el('cash-status').textContent = saldoCash >= 0 ? '✅ Contanti disponibili' : '⚠️ Contanti esauriti!';
+
+  var signBtn = el('btn-saldo-sign');
+  if (signBtn) signBtn.textContent = String(S.global.saldoIniziale || '').charAt(0) === '-' ? '−' : '+';
+
+  /* — Scheda Riepilogo — */
+  renderRiepilogo();
 }
 
-// ── RENDER RIEPILOGO ──────────────────────────────────────────────────
+/* ── RENDER STRUTTURA (solo su cambio mese / aggiunta / rimozione) ── */
+function renderSpese() {
+  var m = S.months[currentMonth];
+  el('inp-entrate-carta').value = m.entrateCarta;
+  el('inp-entrate-contanti').value = m.entrateContanti;
+  el('inp-saldo-iniziale').value = S.global.saldoIniziale;
+
+  var html = '';
+  for (var ci = 0; ci < CATEGORIES.length; ci++) {
+    html += '<div class="category-row">' +
+      '<div class="cat-header" data-action="toggle-cat" data-ci="' + ci + '">' +
+        '<span class="cat-name">' + CATEGORIES[ci] + '</span>' +
+        '<span class="cat-total" id="cat-tot-' + ci + '"></span>' +
+        '<span style="color:var(--muted);margin-left:8px;font-size:.8rem" id="cat-arrow-' + ci + '">›</span>' +
+      '</div>' +
+      '<div class="cat-body" id="cat-body-' + ci + '">' +
+        '<div class="voci-list" id="voci-' + ci + '"></div>' +
+        '<button class="btn-add-voce" data-action="add-voce" data-ci="' + ci + '">+ Aggiungi voce</button>' +
+      '</div>' +
+    '</div>';
+  }
+  el('categories-container').innerHTML = html;
+  for (var i = 0; i < CATEGORIES.length; i++) renderVoci(i);
+  updateAllTotals();
+}
+
+function renderVoci(ci) {
+  var box = el('voci-' + ci);
+  if (!box) return;
+  var items = S.months[currentMonth].cats[CATEGORIES[ci]];
+  if (!items.length) {
+    box.innerHTML = '<div class="voce-empty">Nessuna voce — premi + per aggiungere</div>';
+    return;
+  }
+  var html = '';
+  for (var ii = 0; ii < items.length; ii++) {
+    var it = items[ii];
+    html += '<div class="voce-item">' +
+      '<input type="text" class="voce-desc" placeholder="Descrizione (opzionale)" value="' + esc(it.desc) + '" data-field="voce-desc" data-ci="' + ci + '" data-ii="' + ii + '" autocomplete="off">' +
+      '<div class="voce-row">' +
+        '<div class="voce-wrap"><span class="currency">€</span>' +
+          '<input type="text" inputmode="decimal" placeholder="0.00" value="' + esc(it.amount) + '" data-field="voce-amount" data-ci="' + ci + '" data-ii="' + ii + '" autocomplete="off">' +
+        '</div>' +
+        '<button class="tipo-btn ' + (it.tipo === 'carta' ? 'tipo-carta' : 'tipo-cash') + '" data-action="toggle-tipo" data-ci="' + ci + '" data-ii="' + ii + '">' + (it.tipo === 'carta' ? '💳 Carta' : '💵 Contanti') + '</button>' +
+        '<button class="voce-del" data-action="del-voce" data-ci="' + ci + '" data-ii="' + ii + '">✕</button>' +
+      '</div>' +
+    '</div>';
+  }
+  box.innerHTML = html;
+}
+
 function renderRiepilogo() {
-  let mesiHtml = '<table class="riepilogo-table"><thead><tr><th>Mese</th><th>💳 Carta</th><th>💵 Cont.</th><th>Uscite</th><th style="color:var(--accent)">Entrate</th></tr></thead><tbody>';
-  let totCarta = 0, totCont = 0;
+  var html = '<table class="riepilogo-table"><thead><tr><th>Mese</th><th>💳 Carta</th><th>💵 Cont.</th><th>Uscite</th><th style="color:var(--accent)">Entrate</th></tr></thead><tbody>';
+  var totCarta = 0, totCont = 0, totEntrate = 0;
+  for (var mi = 0; mi < MONTHS.length; mi++) {
+    var t = monthTotals(mi);
+    var tot = t.carta + t.contanti;
+    var entrate = t.entrateCarta + t.entrateContanti;
+    totCarta += t.carta; totCont += t.contanti; totEntrate += entrate;
+    html += '<tr><td>' + MONTHS[mi].substring(0, 3) + '</td>' +
+      '<td style="color:var(--accent2)">' + (t.carta > 0 ? fmt(t.carta) : '—') + '</td>' +
+      '<td style="color:var(--cash)">' + (t.contanti > 0 ? fmt(t.contanti) : '—') + '</td>' +
+      '<td>' + (tot > 0 ? fmt(tot) : '—') + '</td>' +
+      '<td style="color:var(--accent)">' + (entrate > 0 ? fmt(entrate) : '—') + '</td></tr>';
+  }
+  html += '<tr><td>Totale</td>' +
+    '<td style="color:var(--accent2)">' + fmt(totCarta) + '</td>' +
+    '<td style="color:var(--cash)">' + fmt(totCont) + '</td>' +
+    '<td>' + fmt(totCarta + totCont) + '</td>' +
+    '<td style="color:var(--accent)">' + fmt(totEntrate) + '</td></tr></tbody></table>';
+  el('riepilogo-mesi-chart').innerHTML = html;
 
-  MONTHS.forEach((month, mi) => {
-    const data = getMonthData(mi);
-    let carta  = 0, contanti = 0;
-    CATEGORIES.forEach(cat => {
-      const t = catTotals(data.cats[cat]);
-      carta    += t.carta;
-      contanti += t.contanti;
-    });
-    const tot     = carta + contanti;
-    const entrate = val(data.entrateCarta) + val(data.entrateContanti);
-    totCarta += carta; totCont += contanti;
-    mesiHtml += `<tr>
-      <td>${month.substring(0,3)}</td>
-      <td style="color:var(--accent2)">${carta>0?fmt(carta):'—'}</td>
-      <td style="color:var(--cash)">${contanti>0?fmt(contanti):'—'}</td>
-      <td>${tot>0?fmt(tot):'—'}</td>
-      <td style="color:var(--accent)">${entrate>0?fmt(entrate):'—'}</td>
-    </tr>`;
-  });
-  const totEntrate = MONTHS.reduce((s, _, mi) => {
-    const d = getMonthData(mi);
-    return s + val(d.entrateCarta) + val(d.entrateContanti);
-  }, 0);
-  mesiHtml += `<tr>
-    <td>Totale</td>
-    <td style="color:var(--accent2)">${fmt(totCarta)}</td>
-    <td style="color:var(--cash)">${fmt(totCont)}</td>
-    <td>${fmt(totCarta+totCont)}</td>
-    <td style="color:var(--accent)">${fmt(totEntrate)}</td>
-  </tr></tbody></table>`;
-  document.getElementById('riepilogo-mesi-chart').innerHTML = mesiHtml;
-
-  let catRows = '';
-  const catSummary = CATEGORIES.map(cat => {
-    let tot = 0;
-    MONTHS.forEach((_, mi) => {
-      const t = catTotals(getMonthData(mi).cats[cat]);
-      tot += t.carta + t.contanti;
-    });
-    return { cat, tot };
-  }).filter(x => x.tot > 0).sort((a,b) => b.tot - a.tot);
-
-  const maxTot = catSummary.length ? catSummary[0].tot : 1;
-  catSummary.forEach(({ cat, tot }) => {
-    const pct = Math.round((tot / maxTot) * 100);
-    catRows += `
-      <div style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-          <span style="font-size:.85rem">${cat}</span>
-          <span style="font-family:var(--mono);font-size:.85rem;color:var(--accent)">${fmt(tot)}</span>
-        </div>
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill" style="width:${pct}%"></div>
-        </div>
-      </div>`;
-  });
-  document.getElementById('riepilogo-categorie').innerHTML = catRows || '<p style="color:var(--muted);font-size:.85rem">Nessun dato ancora</p>';
+  var summary = [];
+  for (var c = 0; c < CATEGORIES.length; c++) {
+    var sum = 0;
+    for (var m = 0; m < MONTHS.length; m++) {
+      var ct = catTotals(S.months[m].cats[CATEGORIES[c]]);
+      sum += ct.carta + ct.contanti;
+    }
+    if (sum > 0) summary.push({ cat: CATEGORIES[c], tot: sum });
+  }
+  summary.sort(function (a, b) { return b.tot - a.tot; });
+  var max = summary.length ? summary[0].tot : 1;
+  var rows = '';
+  for (var i = 0; i < summary.length; i++) {
+    var pct = Math.round((summary[i].tot / max) * 100);
+    rows += '<div style="margin-bottom:12px">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
+        '<span style="font-size:.85rem">' + summary[i].cat + '</span>' +
+        '<span style="font-family:var(--mono);font-size:.85rem;color:var(--accent)">' + fmt(summary[i].tot) + '</span>' +
+      '</div>' +
+      '<div class="progress-bar-bg"><div class="progress-bar-fill" style="width:' + pct + '%"></div></div>' +
+    '</div>';
+  }
+  el('riepilogo-categorie').innerHTML = rows || '<p style="color:var(--muted);font-size:.85rem">Nessun dato ancora</p>';
 }
 
-// ── TOAST ─────────────────────────────────────────────────────────────
-let toastTimer;
+/* ══════════════════════════════════════════════════════════════════════
+   EVENTI — un solo listener delegato per input e uno per click.
+   Funziona anche su elementi creati dinamicamente e su tutte le
+   tastiere Android (input, change e keyup coprono ogni caso).
+   ══════════════════════════════════════════════════════════════════════ */
+function handleFieldEvent(e) {
+  var t = e.target;
+  if (!t || !t.dataset || !t.dataset.field) return;
+  var field = t.dataset.field;
+  var m = S.months[currentMonth];
+
+  if (field === 'entrate-carta')        m.entrateCarta = t.value;
+  else if (field === 'entrate-contanti') m.entrateContanti = t.value;
+  else if (field === 'saldo-iniziale')   S.global.saldoIniziale = t.value;
+  else if (field === 'voce-desc' || field === 'voce-amount') {
+    var items = m.cats[CATEGORIES[+t.dataset.ci]];
+    var item = items && items[+t.dataset.ii];
+    if (!item) return;
+    if (field === 'voce-desc') item.desc = t.value;
+    else item.amount = t.value;
+  } else return;
+
+  persist();
+  updateAllTotals();
+  if (e.type === 'change') showToast();
+}
+document.addEventListener('input', handleFieldEvent);
+document.addEventListener('change', handleFieldEvent);
+document.addEventListener('keyup', handleFieldEvent);
+
+document.addEventListener('click', function (e) {
+  var t = e.target.closest ? e.target.closest('[data-action]') : null;
+
+  // click sullo sfondo del modale mese = chiudi
+  if (!t) {
+    if (e.target === el('monthModal')) el('monthModal').classList.remove('open');
+    return;
+  }
+  var a = t.dataset.action;
+  var ci = +t.dataset.ci;
+  var ii = +t.dataset.ii;
+  var m = S.months[currentMonth];
+
+  if (a === 'switch-tab') {
+    switchTab(t.dataset.tab);
+
+  } else if (a === 'toggle-cat') {
+    var body = el('cat-body-' + ci);
+    var open = body.classList.toggle('open');
+    el('cat-arrow-' + ci).textContent = open ? '⌄' : '›';
+
+  } else if (a === 'add-voce') {
+    m.cats[CATEGORIES[ci]].push({ desc: '', amount: '', tipo: 'carta' });
+    persist();
+    var b = el('cat-body-' + ci);
+    if (!b.classList.contains('open')) {
+      b.classList.add('open');
+      el('cat-arrow-' + ci).textContent = '⌄';
+    }
+    renderVoci(ci);
+    updateAllTotals();
+    var list = el('voci-' + ci);
+    var descs = list ? list.querySelectorAll('.voce-desc') : [];
+    if (descs.length) descs[descs.length - 1].focus();
+
+  } else if (a === 'del-voce') {
+    m.cats[CATEGORIES[ci]].splice(ii, 1);
+    persist();
+    renderVoci(ci);
+    updateAllTotals();
+    showToast();
+
+  } else if (a === 'toggle-tipo') {
+    var item = m.cats[CATEGORIES[ci]][ii];
+    if (item) {
+      item.tipo = item.tipo === 'carta' ? 'contanti' : 'carta';
+      persist();
+      renderVoci(ci);
+      updateAllTotals();
+    }
+
+  } else if (a === 'toggle-saldo-sign') {
+    var n = num(S.global.saldoIniziale);
+    S.global.saldoIniziale = n === 0 ? '' : String(-n);
+    el('inp-saldo-iniziale').value = S.global.saldoIniziale;
+    persist();
+    updateAllTotals();
+
+  } else if (a === 'open-month-modal') {
+    var grid = '';
+    for (var i = 0; i < MONTHS.length; i++) {
+      grid += '<div class="month-btn' + (i === currentMonth ? ' active' : '') + '" data-action="select-month" data-mi="' + i + '">' + MONTHS[i] + '</div>';
+    }
+    el('monthGrid').innerHTML = grid;
+    el('monthModal').classList.add('open');
+
+  } else if (a === 'select-month') {
+    currentMonth = +t.dataset.mi;
+    el('currentMonthLabel').textContent = MONTHS[currentMonth];
+    el('monthModal').classList.remove('open');
+    renderSpese();
+
+  } else if (a === 'close-month-modal') {
+    el('monthModal').classList.remove('open');
+  }
+});
+
+function switchTab(tab) {
+  var sections = document.querySelectorAll('.section');
+  for (var i = 0; i < sections.length; i++) sections[i].classList.remove('active');
+  var tabs = document.querySelectorAll('.tab, .nav-btn');
+  for (var j = 0; j < tabs.length; j++) tabs[j].classList.toggle('active', tabs[j].dataset.tab === tab);
+  el('tab-' + tab).classList.add('active');
+  updateAllTotals();
+}
+
+/* ── TOAST ────────────────────────────────────────────────────────── */
+var toastTimer;
 function showToast() {
-  const t = document.getElementById('toast');
+  var t = el('toast');
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 1500);
+  toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1500);
 }
 
-// ── SERVICE WORKER ────────────────────────────────────────────────────
+/* ── MANIFEST PWA ─────────────────────────────────────────────────── */
+(function () {
+  var manifest = {
+    name: 'Spese 2026', short_name: 'Spese', description: 'Tracker spese mensili',
+    start_url: '.', display: 'standalone',
+    background_color: '#0f1923', theme_color: '#0f1923',
+    icons: [{ src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6QMCCwkV7TATAAAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAABbklEQVR42u3BMQEAAADCoPVP7WsIoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeAMBuAABHgAAAABJRU5ErkJggg==', sizes: '192x192', type: 'image/png' }]
+  };
+  try {
+    var blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+    var link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = URL.createObjectURL(blob);
+    document.head.appendChild(link);
+  } catch (e) {}
+})();
+
+/* ── SERVICE WORKER: sempre rete prima, cache solo come riserva offline ── */
 if ('serviceWorker' in navigator) {
-  const swCode = `
-const CACHE = 'spese2026-v18';
-self.addEventListener('install', e => { self.skipWaiting(); });
-self.addEventListener('activate', e => { self.clients.claim(); });
-self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });
-  `;
-  const blob = new Blob([swCode], {type: 'application/javascript'});
-  const swUrl = URL.createObjectURL(blob);
-  navigator.serviceWorker.register(swUrl).catch(() => {});
+  try {
+    var swCode = "const CACHE='spese2026-v19';" +
+      "self.addEventListener('install',e=>{self.skipWaiting();});" +
+      "self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});" +
+      "self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE).then(ch=>ch.put(e.request,c)).catch(()=>{});return r;}).catch(()=>caches.match(e.request)));});";
+    var swBlob = new Blob([swCode], { type: 'application/javascript' });
+    navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(function () {});
+  } catch (e) {}
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────
+/* ── AVVIO ────────────────────────────────────────────────────────── */
 renderSpese();
 </script>
 </body>

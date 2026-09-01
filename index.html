@@ -366,7 +366,7 @@ body {
 
     <!-- Saldo carta (si azzera ogni mese da Luglio) -->
     <div class="saldo-box">
-      <div class="saldo-label" id="lbl-saldo-carta">Saldo carta — Giugno</div>
+      <div class="saldo-label" id="lbl-saldo-carta">💳 Saldo carta</div>
       <div class="saldo-value" id="banca-saldo-attuale">€0,00</div>
       <div class="saldo-status" id="banca-status">—</div>
     </div>
@@ -566,7 +566,9 @@ function updateAllTotals() {
      Contanti: cumulativi su tutti i mesi. */
   var saldoCarta = num(S.global.saldoIniziale);
   var saldoCash = 0;
-  var saldoCartaCorrente = 0;
+  // Riquadro grande: saldo iniziale + entrate carta − tutte le spese carta,
+  // cumulativo su tutti i mesi (non si azzera).
+  var saldoCartaTotale = num(S.global.saldoIniziale);
   var html = '';
 
   for (var mi = 0; mi < MONTHS.length; mi++) {
@@ -574,7 +576,7 @@ function updateAllTotals() {
     var mt = monthTotals(mi);
     saldoCarta += mt.entrateCarta - mt.carta;
     saldoCash += mt.entrateContanti - mt.contanti;
-    if (mi === currentMonth) saldoCartaCorrente = saldoCarta;
+    saldoCartaTotale += mt.entrateCarta - mt.carta;
 
     html += '<div class="banca-row"><div>' +
       '<div class="banca-month">' + MONTHS[mi] + '</div>' +
@@ -588,10 +590,10 @@ function updateAllTotals() {
   el('banca-mesi').innerHTML = html;
 
   var saEl = el('banca-saldo-attuale');
-  saEl.textContent = fmt(saldoCartaCorrente);
-  saEl.className = 'saldo-value' + (saldoCartaCorrente < 0 ? ' negative' : '');
-  el('banca-status').textContent = saldoCartaCorrente >= 0 ? '✅ Saldo positivo' : '⚠️ Attenzione: saldo negativo!';
-  el('lbl-saldo-carta').textContent = 'Saldo carta — ' + MONTHS[currentMonth] + (currentMonth >= 1 ? ' (azzerato a inizio mese)' : '');
+  saEl.textContent = fmt(saldoCartaTotale);
+  saEl.className = 'saldo-value' + (saldoCartaTotale < 0 ? ' negative' : '');
+  el('banca-status').textContent = saldoCartaTotale >= 0 ? '✅ Saldo positivo' : '⚠️ Attenzione: saldo negativo!';
+  el('lbl-saldo-carta').textContent = '💳 Saldo carta (saldo iniziale − tutte le spese carta)';
 
   var cashEl = el('cash-residui');
   cashEl.textContent = fmt(saldoCash);
@@ -847,7 +849,7 @@ function showToast() {
 /* ── SERVICE WORKER: sempre rete prima, cache solo come riserva offline ── */
 if ('serviceWorker' in navigator) {
   try {
-    var swCode = "const CACHE='spese2026-v19';" +
+    var swCode = "const CACHE='spese2026-v20';" +
       "self.addEventListener('install',e=>{self.skipWaiting();});" +
       "self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});" +
       "self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE).then(ch=>ch.put(e.request,c)).catch(()=>{});return r;}).catch(()=>caches.match(e.request)));});";

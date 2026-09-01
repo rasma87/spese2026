@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Spese 2026">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+<meta name="googlebot" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
 <title>Spese 2026</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -849,7 +852,7 @@ function showToast() {
 /* ── SERVICE WORKER: sempre rete prima, cache solo come riserva offline ── */
 if ('serviceWorker' in navigator) {
   try {
-    var swCode = "const CACHE='spese2026-v20';" +
+    var swCode = "const CACHE='spese2026-v21';" +
       "self.addEventListener('install',e=>{self.skipWaiting();});" +
       "self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});" +
       "self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE).then(ch=>ch.put(e.request,c)).catch(()=>{});return r;}).catch(()=>caches.match(e.request)));});";

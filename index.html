@@ -271,6 +271,7 @@ body {
   white-space: nowrap;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.error { background: var(--danger); color: #fff; }
 
 /* ── PROGRESS BAR ── */
 .progress-bar-bg { background: var(--bg3); border-radius: 4px; height: 6px; overflow: hidden; }
@@ -283,7 +284,7 @@ body {
 <div class="topbar">
   <h1>Spese <span>2026</span></h1>
   <div class="month-pill" data-action="open-month-modal">
-    <span id="currentMonthLabel">Giugno</span> ▾
+    <span id="currentMonthLabel"></span> ▾
   </div>
 </div>
 
@@ -445,39 +446,58 @@ var CATEGORIES = [
   'Intrattenimento','Abbonamenti','Istruzione','Regali','Altro'
 ];
 var STORAGE_KEY = 'spese2026';
+// Le versioni dal 4 giugno all'8 luglio salvavano qui, con un altro formato.
+var LEGACY_B_KEY = 'spese2026b';
 
-var currentMonth = 0;
-var S = loadState();   // stato globale in memoria
+// Mese mostrato all'apertura: quello di oggi (Giugno 2026 = 0 ... Dicembre 2026 = 6).
+function monthForDate(d) {
+  var idx = (d.getFullYear() - 2026) * 12 + d.getMonth() - 5;
+  return Math.max(0, Math.min(MONTHS.length - 1, idx));
+}
 
-function loadState() {
+var currentMonth = monthForDate(new Date());
+var monthPickedByUser = false;  // se l'utente sceglie un mese, non lo cambiamo noi
+var S = null;                   // stato globale in memoria
+var lastRaw = null;             // ultimo JSON letto o scritto da QUESTA istanza
+var unsaved = false;            // l'ultimo salvataggio è fallito
+var rendering = false;          // durante il ridisegno si ignorano gli eventi dei campi
+
+// undefined = lettura impossibile (diverso da null = niente salvato)
+function readRaw() {
+  try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return undefined; }
+}
+function str(v) { return v == null ? '' : String(v); }
+
+function loadState(rawStr) {
   var raw = {};
-  try { raw = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (e) { raw = {}; }
-  var s = { global: { saldoIniziale: '' }, months: [] };
-  if (raw.global && typeof raw.global.saldoIniziale === 'string') s.global.saldoIniziale = raw.global.saldoIniziale;
+  try { raw = JSON.parse(rawStr) || {}; } catch (e) { raw = {}; }
+  if (typeof raw !== 'object') raw = {};
+  var s = { global: { saldoIniziale: '' }, months: [], legacyBImported: !!raw.legacyBImported };
+  if (raw.global && raw.global.saldoIniziale != null) s.global.saldoIniziale = str(raw.global.saldoIniziale);
   for (var mi = 0; mi < MONTHS.length; mi++) {
-    var m = raw[mi] || {};
+    var m = (raw[mi] && typeof raw[mi] === 'object') ? raw[mi] : {};
     var month = { entrateCarta: '', entrateContanti: '', cats: {} };
     // migrazione vecchio campo unico "entrate"
-    if (typeof m.entrate === 'string' && m.entrate) month.entrateCarta = m.entrate;
-    if (typeof m.entrateCarta === 'string') month.entrateCarta = m.entrateCarta;
-    if (typeof m.entrateContanti === 'string') month.entrateContanti = m.entrateContanti;
-    var cats = m.cats || {};
+    if (m.entrate != null && m.entrate !== '') month.entrateCarta = str(m.entrate);
+    if (m.entrateCarta != null) month.entrateCarta = str(m.entrateCarta);
+    if (m.entrateContanti != null) month.entrateContanti = str(m.entrateContanti);
+    var cats = (m.cats && typeof m.cats === 'object') ? m.cats : {};
     for (var c = 0; c < CATEGORIES.length; c++) {
       var name = CATEGORIES[c];
       var items = cats[name];
       if (Array.isArray(items)) {
-        month.cats[name] = items.map(function (it) {
+        month.cats[name] = items.filter(Boolean).map(function (it) {
           return {
-            desc:   typeof it.desc   === 'string' ? it.desc   : '',
-            amount: typeof it.amount === 'string' ? it.amount : String(it.amount || ''),
+            desc:   str(it.desc),
+            amount: str(it.amount),
             tipo:   it.tipo === 'contanti' ? 'contanti' : 'carta'
           };
         });
       } else if (items && typeof items === 'object') {
         // migrazione vecchio formato {carta, contanti}
         var arr = [];
-        if (num(items.carta) > 0)    arr.push({ desc: '', amount: String(items.carta),    tipo: 'carta' });
-        if (num(items.contanti) > 0) arr.push({ desc: '', amount: String(items.contanti), tipo: 'contanti' });
+        if (num(items.carta) !== 0)    arr.push({ desc: '', amount: str(items.carta),    tipo: 'carta' });
+        if (num(items.contanti) !== 0) arr.push({ desc: '', amount: str(items.contanti), tipo: 'contanti' });
         month.cats[name] = arr;
       } else {
         month.cats[name] = [];
@@ -488,21 +508,115 @@ function loadState() {
   return s;
 }
 
+/* Salva TUTTO lo stato e verifica rileggendo. Restituisce true se riuscito. */
 function persist() {
+  var out = { global: S.global, legacyBImported: S.legacyBImported ? 1 : 0 };
+  for (var mi = 0; mi < S.months.length; mi++) out[mi] = S.months[mi];
+  var json = JSON.stringify(out);
   try {
-    var out = { global: S.global };
-    for (var mi = 0; mi < S.months.length; mi++) out[mi] = S.months[mi];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(out));
-  } catch (e) { /* quota piena o storage bloccato: i dati restano comunque in memoria */ }
+    localStorage.getItem(STORAGE_KEY);  // se non si può nemmeno leggere, non scrivere
+    localStorage.setItem(STORAGE_KEY, json);
+    if (localStorage.getItem(STORAGE_KEY) !== json) throw new Error('verifica fallita');
+    lastRaw = json;
+    unsaved = false;
+    return true;
+  } catch (e) {
+    unsaved = true;
+    showToast('⚠️ Salvataggio non riuscito', 'error', 4000);
+    return false;
+  }
+}
+
+/* Se un'altra istanza dell'app (l'icona sulla home, una scheda di Chrome,
+   una finestra rimasta in memoria) ha salvato dati più recenti, li ricarica.
+   Va chiamata PRIMA di ogni modifica: così una copia vecchia dell'app non
+   può più sovrascrivere i dati nuovi. Restituisce true se ha ricaricato. */
+function syncFromStorage() {
+  var raw = readRaw();
+  if (raw === undefined || raw === lastRaw) return false;  // lettura fallita: si tiene la memoria
+  S = loadState(raw);
+  lastRaw = raw;
+  return true;
+}
+
+function monthIsEmpty(mi) {
+  var m = S.months[mi];
+  if (num(m.entrateCarta) !== 0 || num(m.entrateContanti) !== 0) return false;
+  for (var c = 0; c < CATEGORIES.length; c++) {
+    var it = m.cats[CATEGORIES[c]];
+    for (var i = 0; i < it.length; i++) if (num(it[i].amount) !== 0 || it[i].desc.trim()) return false;
+  }
+  return true;
+}
+
+/* Recupero una tantum dei dati salvati dalle versioni di giugno/luglio
+   (chiave 'spese2026b', formato {g:{si}, <mese>:{ec, ecc, voci:[...]}}).
+   Riempie solo i mesi ancora completamente vuoti, così niente viene contato
+   due volte. La vecchia chiave NON viene cancellata: resta come copia di
+   sicurezza. Restituisce l'elenco di ciò che è stato recuperato. */
+function migrateLegacyB() {
+  var b;
+  // Il marcatore sta dentro i dati: se una vecchia finestra dell'app li
+  // sovrascrive, sparisce anche lui e al prossimo avvio il recupero si ripete.
+  if (S.legacyBImported) return [];
+  try { b = JSON.parse(localStorage.getItem(LEGACY_B_KEY)); } catch (e) { return []; }
+  if (!b || typeof b !== 'object') return [];
+
+  var recovered = [];
+  if (S.global.saldoIniziale === '' && b.g && str(b.g.si) !== '') {
+    S.global.saldoIniziale = str(b.g.si);
+    recovered.push('saldo iniziale');
+  }
+  for (var mi = 0; mi < MONTHS.length; mi++) {
+    var bm = b[mi];
+    if (!bm || typeof bm !== 'object' || !monthIsEmpty(mi)) continue;
+    var m = S.months[mi], any = false;
+    for (var k = 0; k < CATEGORIES.length; k++) m.cats[CATEGORIES[k]] = [];  // via le righe vuote
+    if (str(bm.ec) !== '')  { m.entrateCarta = str(bm.ec);     any = true; }
+    if (str(bm.ecc) !== '') { m.entrateContanti = str(bm.ecc); any = true; }
+    var voci = Array.isArray(bm.voci) ? bm.voci : [];
+    for (var i = 0; i < voci.length; i++) {
+      var vo = voci[i];
+      if (!vo) continue;
+      // quelle versioni potevano salvare le spese col segno meno
+      var n = Math.abs(num(vo.amount));
+      if (n === 0 && !str(vo.desc)) continue;
+      var cat = CATEGORIES.indexOf(vo.cat) >= 0 ? vo.cat : 'Altro';
+      m.cats[cat].push({ desc: str(vo.desc), amount: n.toFixed(2), tipo: vo.tipo === 'contanti' ? 'contanti' : 'carta' });
+      any = true;
+    }
+    if (any) recovered.push(MONTHS[mi]);
+  }
+  S.legacyBImported = true;
+  if (!persist()) { S = loadState(lastRaw); return []; }  // riproverà al prossimo avvio
+  return recovered;
 }
 
 /* ── UTIL ─────────────────────────────────────────────────────────── */
+/* Legge un importo scritto all'italiana o all'inglese:
+   "12,50" "12.50" "1.500" "1.500,00" "1,500.00" "€ 1.500" → numero. */
 function num(x) {
-  var n = parseFloat(String(x == null ? '' : x).replace(',', '.'));
+  var s = String(x == null ? '' : x).replace(/[\s €']/g, '').replace(/[−–]/g, '-');
+  s = s.replace(/^\+/, '').replace(/([.,])\1+/g, '$1').replace(/[.,]+$/, '');
+  if (!s) return 0;
+  var c = s.lastIndexOf(','), d = s.lastIndexOf('.');
+  if (c >= 0 && d >= 0) {
+    // ci sono entrambi: l'ultimo separatore è quello dei decimali
+    s = c > d ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  } else if (c >= 0) {
+    s = /^-?\d{1,3}(,\d{3}){2,}$/.test(s) ? s.replace(/,/g, '') : s.replace(/,(?=.*,)/g, '').replace(',', '.');
+  } else if (d >= 0) {
+    // solo punti: "1.500" e "12.500.000" sono migliaia, "12.50" e "0.500" decimali
+    if (/^-?[1-9]\d{0,2}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+    else s = s.replace(/\.(?=.*\.)/g, '');
+  }
+  var n = parseFloat(s);
   return isFinite(n) ? n : 0;
 }
+function r2(n) { var r = Math.round(Math.abs(n) * 100) / 100; return n < 0 && r ? -r : r; }
 function fmt(n) {
   if (!isFinite(n)) n = 0;
+  n = r2(n);
   return '€' + n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function esc(s) {
@@ -546,7 +660,7 @@ function updateAllTotals() {
   var t = monthTotals(currentMonth);
   var tot = t.carta + t.contanti;
   var entrate = t.entrateCarta + t.entrateContanti;
-  var saldo = entrate - tot;
+  var saldo = r2(entrate - tot);
 
   el('sum-entrate-tot').textContent = entrate > 0 ? fmt(entrate) : '';
   el('sum-carta').textContent = fmt(t.carta);
@@ -577,9 +691,9 @@ function updateAllTotals() {
   for (var mi = 0; mi < MONTHS.length; mi++) {
     if (mi >= 1) saldoCarta = 0;
     var mt = monthTotals(mi);
-    saldoCarta += mt.entrateCarta - mt.carta;
-    saldoCash += mt.entrateContanti - mt.contanti;
-    saldoCartaTotale += mt.entrateCarta - mt.carta;
+    saldoCarta = r2(saldoCarta + mt.entrateCarta - mt.carta);
+    saldoCash = r2(saldoCash + mt.entrateContanti - mt.contanti);
+    saldoCartaTotale = r2(saldoCartaTotale + mt.entrateCarta - mt.carta);
 
     html += '<div class="banca-row"><div>' +
       '<div class="banca-month">' + MONTHS[mi] + '</div>' +
@@ -613,6 +727,7 @@ function updateAllTotals() {
 /* ── RENDER STRUTTURA (solo su cambio mese / aggiunta / rimozione) ── */
 function renderSpese() {
   var m = S.months[currentMonth];
+  el('currentMonthLabel').textContent = MONTHS[currentMonth];
   el('inp-entrate-carta').value = m.entrateCarta;
   el('inp-entrate-contanti').value = m.entrateContanti;
   el('inp-saldo-iniziale').value = S.global.saldoIniziale;
@@ -648,10 +763,10 @@ function renderVoci(ci) {
   for (var ii = 0; ii < items.length; ii++) {
     var it = items[ii];
     html += '<div class="voce-item">' +
-      '<input type="text" class="voce-desc" placeholder="Descrizione (opzionale)" value="' + esc(it.desc) + '" data-field="voce-desc" data-ci="' + ci + '" data-ii="' + ii + '" autocomplete="off">' +
+      '<input type="text" class="voce-desc" placeholder="Descrizione (opzionale)" value="' + esc(it.desc) + '" data-field="voce-desc" data-mi="' + currentMonth + '" data-ci="' + ci + '" data-ii="' + ii + '" autocomplete="off">' +
       '<div class="voce-row">' +
         '<div class="voce-wrap"><span class="currency">€</span>' +
-          '<input type="text" inputmode="decimal" placeholder="0.00" value="' + esc(it.amount) + '" data-field="voce-amount" data-ci="' + ci + '" data-ii="' + ii + '" autocomplete="off">' +
+          '<input type="text" inputmode="decimal" placeholder="0.00" value="' + esc(it.amount) + '" data-field="voce-amount" data-mi="' + currentMonth + '" data-ci="' + ci + '" data-ii="' + ii + '" autocomplete="off">' +
         '</div>' +
         '<button class="tipo-btn ' + (it.tipo === 'carta' ? 'tipo-carta' : 'tipo-cash') + '" data-action="toggle-tipo" data-ci="' + ci + '" data-ii="' + ii + '">' + (it.tipo === 'carta' ? '💳 Carta' : '💵 Contanti') + '</button>' +
         '<button class="voce-del" data-action="del-voce" data-ci="' + ci + '" data-ii="' + ii + '">✕</button>' +
@@ -659,6 +774,43 @@ function renderVoci(ci) {
     '</div>';
   }
   box.innerHTML = html;
+}
+
+/* Ridisegna la scheda Spese con i dati attuali senza far perdere il punto:
+   le categorie aperte restano aperte e il campo in cui si sta scrivendo
+   mantiene il cursore. */
+function rerenderPreservingUI() {
+  var open = [];
+  for (var ci = 0; ci < CATEGORIES.length; ci++) {
+    var b = el('cat-body-' + ci);
+    if (b && b.classList.contains('open')) open.push(ci);
+  }
+  var ae = document.activeElement, sel = null, ss = null, se = null, sd;
+  if (ae && ae.tagName === 'INPUT' && ae.dataset.field) {
+    if (ae.id) sel = '#' + ae.id;
+    else {
+      // il focus torna sulla stessa voce solo se mese e numero di voci non sono cambiati
+      var list = ae.closest('.voci-list');
+      var before = list ? list.querySelectorAll('.voce-item').length : -1;
+      var items = S.months[currentMonth].cats[CATEGORIES[+ae.dataset.ci]];
+      if (+ae.dataset.mi === currentMonth && items && items.length === before)
+        sel = '[data-field="' + ae.dataset.field + '"][data-ci="' + ae.dataset.ci + '"][data-ii="' + ae.dataset.ii + '"]';
+    }
+    try { ss = ae.selectionStart; se = ae.selectionEnd; sd = ae.selectionDirection; } catch (e) {}
+  }
+  rendering = true;
+  try { renderSpese(); } finally { rendering = false; }
+  for (var i = 0; i < open.length; i++) {
+    el('cat-body-' + open[i]).classList.add('open');
+    el('cat-arrow-' + open[i]).textContent = '⌄';
+  }
+  if (sel) {
+    var n = document.querySelector(sel);
+    if (n) {
+      if (n !== document.activeElement) n.focus();
+      try { if (ss != null) n.setSelectionRange(ss, se, sd); } catch (e) {}
+    }
+  }
 }
 
 function renderRiepilogo() {
@@ -714,24 +866,35 @@ function renderRiepilogo() {
    ══════════════════════════════════════════════════════════════════════ */
 function handleFieldEvent(e) {
   var t = e.target;
-  if (!t || !t.dataset || !t.dataset.field) return;
+  if (rendering || !t || !t.dataset || !t.dataset.field || !t.isConnected) return;
   var field = t.dataset.field;
+  var isVoce = field === 'voce-desc' || field === 'voce-amount';
+  if (isVoce && +t.dataset.mi !== currentMonth) return;  // campo di un mese non più mostrato
+  var value = t.value;
+  var resynced = syncFromStorage();   // prima i dati più recenti, poi la modifica
+  // Se un'altra finestra ha cambiato i dati, la posizione della voce potrebbe
+  // non essere più la stessa: si mostra la situazione aggiornata senza scrivere.
+  if (resynced && isVoce) { rerenderPreservingUI(); return; }
   var m = S.months[currentMonth];
+  var target, key;
 
-  if (field === 'entrate-carta')        m.entrateCarta = t.value;
-  else if (field === 'entrate-contanti') m.entrateContanti = t.value;
-  else if (field === 'saldo-iniziale')   S.global.saldoIniziale = t.value;
+  if (field === 'entrate-carta')         { target = m; key = 'entrateCarta'; }
+  else if (field === 'entrate-contanti') { target = m; key = 'entrateContanti'; }
+  else if (field === 'saldo-iniziale')   { target = S.global; key = 'saldoIniziale'; }
   else if (field === 'voce-desc' || field === 'voce-amount') {
     var items = m.cats[CATEGORIES[+t.dataset.ci]];
-    var item = items && items[+t.dataset.ii];
-    if (!item) return;
-    if (field === 'voce-desc') item.desc = t.value;
-    else item.amount = t.value;
+    target = items && items[+t.dataset.ii];
+    key = field === 'voce-desc' ? 'desc' : 'amount';
+    if (!target) { rerenderPreservingUI(); return; }  // voce eliminata altrove
   } else return;
 
-  persist();
-  updateAllTotals();
-  if (e.type === 'change') showToast();
+  var saved = true;
+  if (target[key] !== value || unsaved) {
+    target[key] = value;
+    saved = persist();
+  }
+  if (resynced) rerenderPreservingUI(); else updateAllTotals();
+  if (e.type === 'change' && saved) showToast('✓ Salvato');
 }
 document.addEventListener('input', handleFieldEvent);
 document.addEventListener('change', handleFieldEvent);
@@ -748,6 +911,16 @@ document.addEventListener('click', function (e) {
   var a = t.dataset.action;
   var ci = +t.dataset.ci;
   var ii = +t.dataset.ii;
+
+  // Azioni che modificano i dati: prima si ricaricano quelli più recenti.
+  // Se erano cambiati e l'azione punta a una voce precisa, si mostra la
+  // situazione aggiornata invece di rischiare di toccare la voce sbagliata.
+  var resynced = false;
+  if (a === 'add-voce' || a === 'del-voce' || a === 'toggle-tipo' || a === 'toggle-saldo-sign') {
+    resynced = syncFromStorage();
+    if (resynced) rerenderPreservingUI();
+    if (resynced && (a === 'del-voce' || a === 'toggle-tipo')) return;
+  }
   var m = S.months[currentMonth];
 
   if (a === 'switch-tab') {
@@ -774,10 +947,10 @@ document.addEventListener('click', function (e) {
 
   } else if (a === 'del-voce') {
     m.cats[CATEGORIES[ci]].splice(ii, 1);
-    persist();
+    var ok = persist();
     renderVoci(ci);
     updateAllTotals();
-    showToast();
+    if (ok) showToast('✓ Salvato');
 
   } else if (a === 'toggle-tipo') {
     var item = m.cats[CATEGORIES[ci]][ii];
@@ -790,7 +963,7 @@ document.addEventListener('click', function (e) {
 
   } else if (a === 'toggle-saldo-sign') {
     var n = num(S.global.saldoIniziale);
-    S.global.saldoIniziale = n === 0 ? '' : String(-n);
+    S.global.saldoIniziale = n === 0 ? '' : String(-n).replace('.', ',');
     el('inp-saldo-iniziale').value = S.global.saldoIniziale;
     persist();
     updateAllTotals();
@@ -805,8 +978,9 @@ document.addEventListener('click', function (e) {
 
   } else if (a === 'select-month') {
     currentMonth = +t.dataset.mi;
-    el('currentMonthLabel').textContent = MONTHS[currentMonth];
+    monthPickedByUser = true;
     el('monthModal').classList.remove('open');
+    syncFromStorage();
     renderSpese();
 
   } else if (a === 'close-month-modal') {
@@ -820,16 +994,42 @@ function switchTab(tab) {
   var tabs = document.querySelectorAll('.tab, .nav-btn');
   for (var j = 0; j < tabs.length; j++) tabs[j].classList.toggle('active', tabs[j].dataset.tab === tab);
   el('tab-' + tab).classList.add('active');
-  updateAllTotals();
+  if (syncFromStorage()) rerenderPreservingUI(); else updateAllTotals();
 }
+
+/* Quando l'app torna in primo piano (o un'altra scheda salva) si riallinea
+   ai dati salvati e, se l'utente non ha scelto un mese a mano, al mese di oggi. */
+function onResume() {
+  var changed = syncFromStorage();
+  if (!monthPickedByUser) {
+    var mi = monthForDate(new Date());
+    if (mi !== currentMonth) {
+      currentMonth = mi; changed = true;
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      el('monthModal').classList.remove('open');
+    }
+  }
+  if (changed) rerenderPreservingUI();
+}
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible') onResume();
+});
+window.addEventListener('pageshow', function (e) { if (e.persisted) onResume(); });
+window.addEventListener('storage', function (e) {
+  if (e.key === STORAGE_KEY || e.key === null) {
+    if (syncFromStorage()) rerenderPreservingUI();
+  }
+});
 
 /* ── TOAST ────────────────────────────────────────────────────────── */
 var toastTimer;
-function showToast() {
+function showToast(msg, kind, ms) {
   var t = el('toast');
+  t.textContent = msg || '✓ Salvato';
+  t.classList.toggle('error', kind === 'error');
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1500);
+  toastTimer = setTimeout(function () { t.classList.remove('show'); }, ms || 1500);
 }
 
 /* ── MANIFEST PWA ─────────────────────────────────────────────────── */
@@ -849,20 +1049,23 @@ function showToast() {
   } catch (e) {}
 })();
 
-/* ── SERVICE WORKER: sempre rete prima, cache solo come riserva offline ── */
-if ('serviceWorker' in navigator) {
-  try {
-    var swCode = "const CACHE='spese2026-v21';" +
-      "self.addEventListener('install',e=>{self.skipWaiting();});" +
-      "self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});" +
-      "self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE).then(ch=>ch.put(e.request,c)).catch(()=>{});return r;}).catch(()=>caches.match(e.request)));});";
-    var swBlob = new Blob([swCode], { type: 'application/javascript' });
-    navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(function () {});
-  } catch (e) {}
-}
-
 /* ── AVVIO ────────────────────────────────────────────────────────── */
+lastRaw = readRaw();
+if (lastRaw === undefined) lastRaw = null;
+var recovered = [];
+var corrupt = false;
+if (lastRaw) { try { JSON.parse(lastRaw); } catch (e) { corrupt = true; } }
+if (corrupt) {  // dati illeggibili: copia di sicurezza prima di qualunque scrittura
+  try { if (!localStorage.getItem('spese2026-illeggibile')) localStorage.setItem('spese2026-illeggibile', lastRaw); } catch (e) {}
+}
+S = loadState(lastRaw);
+if (!corrupt) recovered = migrateLegacyB();
 renderSpese();
+if (corrupt) showToast('⚠️ Dati salvati illeggibili: copia di sicurezza conservata', 'error', 6000);
+else if (recovered.length) showToast('↺ Dati recuperati: ' + recovered.join(', '), 'ok', 5000);
+
+// Chiede al browser di non cancellare mai i dati salvati per liberare spazio.
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
 </script>
 </body>
 </html>

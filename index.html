@@ -158,7 +158,7 @@ body {
   -webkit-appearance: none; appearance: none;
 }
 .input-wrap input:focus { border-color: var(--accent2); }
-.input-wrap.card input:focus { border-color: var(--accent2); }
+.input-wrap.carta input:focus { border-color: var(--accent2); }
 .input-wrap.cash input:focus { border-color: var(--cash); }
 
 .inline-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
@@ -211,6 +211,13 @@ body {
 .riepilogo-table td { padding: 8px; border-top: 1px solid var(--border); }
 .riepilogo-table td:not(:first-child) { text-align: right; font-family: var(--mono); font-size: .82rem; }
 .riepilogo-table tr:last-child td { font-weight: 700; color: var(--accent); border-top: 2px solid var(--border); }
+.riepilogo-table td { white-space: nowrap; }
+#riepilogo-mesi-chart { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media (max-width: 480px) {
+  .riepilogo-table th, .riepilogo-table td { padding: 6px 3px; }
+  .riepilogo-table th { letter-spacing: .02em; }
+  .riepilogo-table td:not(:first-child) { font-size: .72rem; }
+}
 
 /* ── BANCA TABLE ── */
 .banca-row {
@@ -306,8 +313,8 @@ body {
         <div class="stat-label">💰 Entrate &nbsp;<span id="sum-entrate-tot" style="font-family:var(--mono);color:var(--accent);font-size:.85rem"></span></div>
         <div class="inline-inputs">
           <div class="input-group">
-            <label>💳 Carta</label>
-            <div class="input-wrap card">
+            <label>💳 Carta/conto</label>
+            <div class="input-wrap carta">
               <span class="currency">€</span>
               <input type="text" inputmode="decimal" id="inp-entrate-carta" data-field="entrate-carta" placeholder="0.00" autocomplete="off">
             </div>
@@ -326,7 +333,7 @@ body {
     <!-- Riepilogo mese -->
     <div class="stat-grid">
       <div class="stat">
-        <div class="stat-label">💳 Carta</div>
+        <div class="stat-label">💳 Carta/conto</div>
         <div class="stat-val card-color" id="sum-carta">€0,00</div>
       </div>
       <div class="stat">
@@ -370,7 +377,7 @@ body {
 
     <!-- Saldo carta (si azzera ogni mese da Luglio) -->
     <div class="saldo-box">
-      <div class="saldo-label" id="lbl-saldo-carta">💳 Saldo carta</div>
+      <div class="saldo-label" id="lbl-saldo-carta">💳 Saldo carta/conto</div>
       <div class="saldo-value" id="banca-saldo-attuale">€0,00</div>
       <div class="saldo-status" id="banca-status">—</div>
     </div>
@@ -722,7 +729,7 @@ function updateAllTotals() {
 
     html += '<div class="banca-row"><div>' +
       '<div class="banca-month">' + MONTHS[mi] + '</div>' +
-      '<div class="banca-detail"><span style="color:var(--accent)">+' + fmt(mt.entrateCarta) + '</span> carta &nbsp;·&nbsp; <span style="color:var(--accent2)">−' + fmt(mt.carta) + '</span> spese carta</div>' +
+      '<div class="banca-detail"><span style="color:var(--accent)">+' + fmt(mt.entrateCarta) + '</span> carta/conto &nbsp;·&nbsp; <span style="color:var(--accent2)">−' + fmt(mt.carta) + '</span> spese carta/conto</div>' +
       '<div class="banca-detail" style="margin-top:2px"><span style="color:var(--cash)">+' + fmt(mt.entrateContanti) + '</span> contanti &nbsp;·&nbsp; <span style="color:var(--cash);opacity:.7">−' + fmt(mt.contanti) + '</span> spese cash</div>' +
       '</div><div class="banca-right">' +
       '<div class="banca-saldo ' + (saldoCarta >= 0 ? 'pos' : 'neg') + '">💳 ' + fmt(saldoCarta) + (mi >= 1 ? ' <span style="font-size:.65rem;color:var(--muted)">(azzerato)</span>' : '') + '</div>' +
@@ -735,7 +742,7 @@ function updateAllTotals() {
   saEl.textContent = fmt(saldoCartaTotale);
   saEl.className = 'saldo-value' + (saldoCartaTotale < 0 ? ' negative' : '');
   el('banca-status').textContent = saldoCartaTotale >= 0 ? '✅ Saldo positivo' : '⚠️ Attenzione: saldo negativo!';
-  el('lbl-saldo-carta').textContent = '💳 Saldo carta (saldo iniziale − tutte le spese carta)';
+  el('lbl-saldo-carta').textContent = '💳 Saldo carta/conto (saldo iniziale − tutte le spese carta/conto)';
 
   var cashEl = el('cash-residui');
   cashEl.textContent = fmt(saldoCash);
@@ -793,7 +800,7 @@ function renderVoci(ci) {
         '<div class="voce-wrap"><span class="currency">€</span>' +
           '<input type="text" inputmode="decimal" placeholder="0.00" value="' + esc(it.amount) + '" data-field="voce-amount" data-mi="' + currentMonth + '" data-ci="' + ci + '" data-ii="' + ii + '" autocomplete="off">' +
         '</div>' +
-        '<button class="tipo-btn ' + (it.tipo === 'carta' ? 'tipo-carta' : 'tipo-cash') + '" data-action="toggle-tipo" data-ci="' + ci + '" data-ii="' + ii + '">' + (it.tipo === 'carta' ? '💳 Carta' : '💵 Contanti') + '</button>' +
+        '<button class="tipo-btn ' + (it.tipo === 'carta' ? 'tipo-carta' : 'tipo-cash') + '" data-action="toggle-tipo" data-ci="' + ci + '" data-ii="' + ii + '">' + (it.tipo === 'carta' ? '💳 Carta/conto' : '💵 Contanti') + '</button>' +
         '<button class="voce-del" data-action="del-voce" data-ci="' + ci + '" data-ii="' + ii + '">✕</button>' +
       '</div>' +
     '</div>';
@@ -839,7 +846,7 @@ function rerenderPreservingUI() {
 }
 
 function renderRiepilogo() {
-  var html = '<table class="riepilogo-table"><thead><tr><th>Mese</th><th>💳 Carta</th><th>💵 Cont.</th><th>Uscite</th><th style="color:var(--accent)">Entrate</th></tr></thead><tbody>';
+  var html = '<table class="riepilogo-table"><thead><tr><th>Mese</th><th>💳 Carta/<wbr>conto</th><th>💵 Cont.</th><th>Uscite</th><th style="color:var(--accent)">Entrate</th></tr></thead><tbody>';
   var totCarta = 0, totCont = 0, totEntrate = 0;
   for (var mi = 0; mi < MONTHS.length; mi++) {
     var t = monthTotals(mi);

@@ -403,6 +403,21 @@ body {
       <div id="riepilogo-categorie"></div>
     </div>
 
+    <div class="card">
+      <div class="card-title">🛟 Backup dei dati</div>
+      <p style="font-size:.78rem;color:var(--muted);margin-bottom:10px;line-height:1.45">
+        A ogni apertura e ogni volta che esci, l'app conserva una copia dei dati sul telefono (ultime 30).
+        Per sicurezza totale scarica ogni tanto un file di backup: resta anche se il browser cancella tutto.
+      </p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn-add-voce" style="margin-top:0" data-action="export-backup">⬇ Scarica backup</button>
+        <button class="btn-add-voce" style="margin-top:0" data-action="import-backup">⬆ Ripristina da file</button>
+      </div>
+      <input type="file" id="import-file" accept=".json,application/json,text/plain" style="display:none">
+      <div class="card-title" style="margin:16px 0 6px">Copie automatiche</div>
+      <div id="backup-list"></div>
+    </div>
+
   </div>
 
 </div>
@@ -472,16 +487,23 @@ function loadState(rawStr) {
   var raw = {};
   try { raw = JSON.parse(rawStr) || {}; } catch (e) { raw = {}; }
   if (typeof raw !== 'object') raw = {};
-  var s = { global: { saldoIniziale: '' }, months: [], legacyBImported: !!raw.legacyBImported };
+  var s = { global: { saldoIniziale: '' }, months: [], legacyBImported: !!raw.legacyBImported, extra: {} };
+  // Tutto ciò che questa versione non conosce viene conservato così com'è.
+  for (var rk in raw) {
+    if (rk !== 'global' && rk !== 'legacyBImported' && !/^[0-6]$/.test(rk)) s.extra[rk] = raw[rk];
+  }
+  if (raw.global && typeof raw.global === 'object') for (var gk in raw.global) s.global[gk] = raw.global[gk];
   if (raw.global && raw.global.saldoIniziale != null) s.global.saldoIniziale = str(raw.global.saldoIniziale);
   for (var mi = 0; mi < MONTHS.length; mi++) {
     var m = (raw[mi] && typeof raw[mi] === 'object') ? raw[mi] : {};
     var month = { entrateCarta: '', entrateContanti: '', cats: {} };
+    for (var mk in m) if (mk !== 'entrate' && mk !== 'entrateCarta' && mk !== 'entrateContanti' && mk !== 'cats') month[mk] = m[mk];
     // migrazione vecchio campo unico "entrate"
     if (m.entrate != null && m.entrate !== '') month.entrateCarta = str(m.entrate);
     if (m.entrateCarta != null) month.entrateCarta = str(m.entrateCarta);
     if (m.entrateContanti != null) month.entrateContanti = str(m.entrateContanti);
     var cats = (m.cats && typeof m.cats === 'object') ? m.cats : {};
+    for (var ck in cats) if (CATEGORIES.indexOf(ck) < 0) month.cats[ck] = cats[ck];  // categorie sconosciute: conservate
     for (var c = 0; c < CATEGORIES.length; c++) {
       var name = CATEGORIES[c];
       var items = cats[name];
@@ -510,7 +532,10 @@ function loadState(rawStr) {
 
 /* Salva TUTTO lo stato e verifica rileggendo. Restituisce true se riuscito. */
 function persist() {
-  var out = { global: S.global, legacyBImported: S.legacyBImported ? 1 : 0 };
+  var out = {};
+  for (var xk in S.extra) out[xk] = S.extra[xk];
+  out.global = S.global;
+  out.legacyBImported = S.legacyBImported ? 1 : 0;
   for (var mi = 0; mi < S.months.length; mi++) out[mi] = S.months[mi];
   var json = JSON.stringify(out);
   try {
@@ -983,6 +1008,16 @@ document.addEventListener('click', function (e) {
     syncFromStorage();
     renderSpese();
 
+  } else if (a === 'export-backup') {
+    exportBackup();
+
+  } else if (a === 'import-backup') {
+    el('import-file').click();
+
+  } else if (a === 'restore-backup') {
+    var raw = null; try { raw = localStorage.getItem(t.dataset.key); } catch (e2) {}
+    if (raw && confirm('Ripristinare questa copia?\n(I dati attuali restano tra le copie automatiche.)')) restoreFrom(raw);
+
   } else if (a === 'close-month-modal') {
     el('monthModal').classList.remove('open');
   }
@@ -994,6 +1029,7 @@ function switchTab(tab) {
   var tabs = document.querySelectorAll('.tab, .nav-btn');
   for (var j = 0; j < tabs.length; j++) tabs[j].classList.toggle('active', tabs[j].dataset.tab === tab);
   el('tab-' + tab).classList.add('active');
+  if (tab === 'riepilogo') renderBackups();
   if (syncFromStorage()) rerenderPreservingUI(); else updateAllTotals();
 }
 
@@ -1013,7 +1049,9 @@ function onResume() {
 }
 document.addEventListener('visibilitychange', function () {
   if (document.visibilityState === 'visible') onResume();
+  else if (lastRaw && hasData(lastRaw)) makeBackup(lastRaw);  // copia ogni volta che si esce dall'app
 });
+window.addEventListener('pagehide', function () { if (lastRaw && hasData(lastRaw)) makeBackup(lastRaw); });
 window.addEventListener('pageshow', function (e) { if (e.persisted) onResume(); });
 window.addEventListener('storage', function (e) {
   if (e.key === STORAGE_KEY || e.key === null) {
@@ -1049,6 +1087,117 @@ function showToast(msg, kind, ms) {
   } catch (e) {}
 })();
 
+/* ══════════════════════════════════════════════════════════════════════
+   BACKUP — copie automatiche in chiavi separate che nessuna versione
+   dell'app modifica mai (solo aggiunte e rimozione delle più vecchie),
+   più esportazione/importazione su file.
+   ══════════════════════════════════════════════════════════════════════ */
+var BK_PREFIX = 'spese2026-backup-';
+var BK_KEEP = 30;
+
+function backupKeys() {
+  var keys = [];
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf(BK_PREFIX) === 0) keys.push(k);
+    }
+  } catch (e) {}
+  return keys.sort().reverse();  // la più recente per prima
+}
+function stamp() {
+  var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+}
+/* Salva una copia del JSON dato, se diversa dall'ultima copia. */
+function makeBackup(raw) {
+  if (!raw) return;
+  try {
+    var keys = backupKeys();
+    if (keys.length && localStorage.getItem(keys[0]) === raw) return;
+    localStorage.setItem(BK_PREFIX + stamp(), raw);
+    keys = backupKeys();
+    for (var i = BK_KEEP; i < keys.length; i++) localStorage.removeItem(keys[i]);
+  } catch (e) {}
+}
+function hasData(raw) {
+  try {
+    var st = loadState(raw);
+    if (num(st.global.saldoIniziale) !== 0) return true;
+    for (var mi = 0; mi < MONTHS.length; mi++) {
+      var m = st.months[mi];
+      if (num(m.entrateCarta) || num(m.entrateContanti)) return true;
+      for (var c = 0; c < CATEGORIES.length; c++) if (m.cats[CATEGORIES[c]].length) return true;
+    }
+  } catch (e) {}
+  return false;
+}
+function summary(raw) {
+  try {
+    var st = loadState(raw), voci = 0, mesi = [];
+    for (var mi = 0; mi < MONTHS.length; mi++) {
+      var m = st.months[mi], n = 0;
+      for (var c = 0; c < CATEGORIES.length; c++) n += m.cats[CATEGORIES[c]].length;
+      voci += n;
+      if (n || num(m.entrateCarta) || num(m.entrateContanti)) mesi.push(MONTHS[mi].substring(0, 3));
+    }
+    return voci + ' voci' + (mesi.length ? ' · ' + mesi.join(', ') : '');
+  } catch (e) { return ''; }
+}
+function renderBackups() {
+  var keys = backupKeys(), html = '';
+  for (var i = 0; i < keys.length; i++) {
+    var raw = null; try { raw = localStorage.getItem(keys[i]); } catch (e) {}
+    var t = keys[i].substring(BK_PREFIX.length);  // 2026-10-02_093015
+    var label = t.substring(8, 10) + '/' + t.substring(5, 7) + '/' + t.substring(0, 4) + ' ' + t.substring(11, 13) + ':' + t.substring(13, 15);
+    html += '<div class="banca-row" style="padding:8px 0"><div>' +
+      '<div style="font-size:.85rem;font-weight:600">' + label + '</div>' +
+      '<div class="banca-detail">' + esc(summary(raw)) + '</div></div>' +
+      '<button class="tipo-btn tipo-carta" data-action="restore-backup" data-key="' + esc(keys[i]) + '">Ripristina</button></div>';
+  }
+  el('backup-list').innerHTML = html || '<p style="color:var(--muted);font-size:.8rem">Nessuna copia ancora</p>';
+}
+/* Sostituisce i dati con quelli dati, dopo aver salvato una copia di quelli attuali
+   (così anche un ripristino si può annullare). */
+function restoreFrom(raw) {
+  var obj;
+  try { obj = JSON.parse(raw); } catch (e) { obj = null; }
+  if (!obj || typeof obj !== 'object' || (!obj.global && !obj[0] && !obj[4] && !obj['0'])) {
+    showToast('⚠️ File non valido', 'error', 4000);
+    return;
+  }
+  syncFromStorage();
+  makeBackup(readRaw() || null);
+  S = loadState(raw);
+  if (persist()) {
+    rerenderPreservingUI();
+    renderBackups();
+    showToast('✓ Dati ripristinati', 'ok', 3000);
+  }
+}
+function exportBackup() {
+  syncFromStorage();
+  persist();
+  var blob = new Blob([lastRaw || '{}'], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'spese2026-backup-' + stamp().substring(0, 10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  showToast('⬇ Backup scaricato', 'ok', 3000);
+}
+el('import-file').addEventListener('change', function () {
+  var f = this.files && this.files[0];
+  if (!f) return;
+  var reader = new FileReader();
+  reader.onload = function () {
+    if (confirm('Sostituire i dati attuali con quelli del file?\n(I dati attuali restano tra le copie automatiche.)')) restoreFrom(String(reader.result));
+  };
+  reader.readAsText(f);
+  this.value = '';
+});
+
 /* ── AVVIO ────────────────────────────────────────────────────────── */
 lastRaw = readRaw();
 if (lastRaw === undefined) lastRaw = null;
@@ -1058,6 +1207,7 @@ if (lastRaw) { try { JSON.parse(lastRaw); } catch (e) { corrupt = true; } }
 if (corrupt) {  // dati illeggibili: copia di sicurezza prima di qualunque scrittura
   try { if (!localStorage.getItem('spese2026-illeggibile')) localStorage.setItem('spese2026-illeggibile', lastRaw); } catch (e) {}
 }
+if (lastRaw && hasData(lastRaw)) makeBackup(lastRaw);  // prima di qualunque scrittura
 S = loadState(lastRaw);
 if (!corrupt) recovered = migrateLegacyB();
 renderSpese();

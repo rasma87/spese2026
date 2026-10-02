@@ -448,7 +448,6 @@ var CATEGORIES = [
 var STORAGE_KEY = 'spese2026';
 // Le versioni dal 4 giugno all'8 luglio salvavano qui, con un altro formato.
 var LEGACY_B_KEY = 'spese2026b';
-var LEGACY_B_FLAG = 'spese2026b-migrated';
 
 // Mese mostrato all'apertura: quello di oggi (Giugno 2026 = 0 ... Dicembre 2026 = 6).
 function monthForDate(d) {
@@ -460,9 +459,12 @@ var currentMonth = monthForDate(new Date());
 var monthPickedByUser = false;  // se l'utente sceglie un mese, non lo cambiamo noi
 var S = null;                   // stato globale in memoria
 var lastRaw = null;             // ultimo JSON letto o scritto da QUESTA istanza
+var unsaved = false;            // l'ultimo salvataggio è fallito
+var rendering = false;          // durante il ridisegno si ignorano gli eventi dei campi
 
+// undefined = lettura impossibile (diverso da null = niente salvato)
 function readRaw() {
-  try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
+  try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return undefined; }
 }
 function str(v) { return v == null ? '' : String(v); }
 
@@ -470,7 +472,7 @@ function loadState(rawStr) {
   var raw = {};
   try { raw = JSON.parse(rawStr) || {}; } catch (e) { raw = {}; }
   if (typeof raw !== 'object') raw = {};
-  var s = { global: { saldoIniziale: '' }, months: [] };
+  var s = { global: { saldoIniziale: '' }, months: [], legacyBImported: !!raw.legacyBImported };
   if (raw.global && raw.global.saldoIniziale != null) s.global.saldoIniziale = str(raw.global.saldoIniziale);
   for (var mi = 0; mi < MONTHS.length; mi++) {
     var m = (raw[mi] && typeof raw[mi] === 'object') ? raw[mi] : {};
@@ -508,15 +510,18 @@ function loadState(rawStr) {
 
 /* Salva TUTTO lo stato e verifica rileggendo. Restituisce true se riuscito. */
 function persist() {
-  var out = { global: S.global };
+  var out = { global: S.global, legacyBImported: S.legacyBImported ? 1 : 0 };
   for (var mi = 0; mi < S.months.length; mi++) out[mi] = S.months[mi];
   var json = JSON.stringify(out);
   try {
+    localStorage.getItem(STORAGE_KEY);  // se non si può nemmeno leggere, non scrivere
     localStorage.setItem(STORAGE_KEY, json);
     if (localStorage.getItem(STORAGE_KEY) !== json) throw new Error('verifica fallita');
     lastRaw = json;
+    unsaved = false;
     return true;
   } catch (e) {
+    unsaved = true;
     showToast('⚠️ Salvataggio non riuscito', 'error', 4000);
     return false;
   }
@@ -528,7 +533,7 @@ function persist() {
    può più sovrascrivere i dati nuovi. Restituisce true se ha ricaricato. */
 function syncFromStorage() {
   var raw = readRaw();
-  if (raw === lastRaw) return false;
+  if (raw === undefined || raw === lastRaw) return false;  // lettura fallita: si tiene la memoria
   S = loadState(raw);
   lastRaw = raw;
   return true;
@@ -536,8 +541,11 @@ function syncFromStorage() {
 
 function monthIsEmpty(mi) {
   var m = S.months[mi];
-  if (m.entrateCarta !== '' || m.entrateContanti !== '') return false;
-  for (var c = 0; c < CATEGORIES.length; c++) if (m.cats[CATEGORIES[c]].length) return false;
+  if (num(m.entrateCarta) !== 0 || num(m.entrateContanti) !== 0) return false;
+  for (var c = 0; c < CATEGORIES.length; c++) {
+    var it = m.cats[CATEGORIES[c]];
+    for (var i = 0; i < it.length; i++) if (num(it[i].amount) !== 0 || it[i].desc.trim()) return false;
+  }
   return true;
 }
 
@@ -548,10 +556,10 @@ function monthIsEmpty(mi) {
    sicurezza. Restituisce l'elenco di ciò che è stato recuperato. */
 function migrateLegacyB() {
   var b;
-  try {
-    if (localStorage.getItem(LEGACY_B_FLAG)) return [];
-    b = JSON.parse(localStorage.getItem(LEGACY_B_KEY));
-  } catch (e) { return []; }
+  // Il marcatore sta dentro i dati: se una vecchia finestra dell'app li
+  // sovrascrive, sparisce anche lui e al prossimo avvio il recupero si ripete.
+  if (S.legacyBImported) return [];
+  try { b = JSON.parse(localStorage.getItem(LEGACY_B_KEY)); } catch (e) { return []; }
   if (!b || typeof b !== 'object') return [];
 
   var recovered = [];
@@ -563,6 +571,7 @@ function migrateLegacyB() {
     var bm = b[mi];
     if (!bm || typeof bm !== 'object' || !monthIsEmpty(mi)) continue;
     var m = S.months[mi], any = false;
+    for (var k = 0; k < CATEGORIES.length; k++) m.cats[CATEGORIES[k]] = [];  // via le righe vuote
     if (str(bm.ec) !== '')  { m.entrateCarta = str(bm.ec);     any = true; }
     if (str(bm.ecc) !== '') { m.entrateContanti = str(bm.ecc); any = true; }
     var voci = Array.isArray(bm.voci) ? bm.voci : [];
@@ -578,8 +587,8 @@ function migrateLegacyB() {
     }
     if (any) recovered.push(MONTHS[mi]);
   }
-  if (recovered.length && !persist()) return [];  // riproverà al prossimo avvio
-  try { localStorage.setItem(LEGACY_B_FLAG, '1'); } catch (e) {}
+  S.legacyBImported = true;
+  if (!persist()) { S = loadState(lastRaw); return []; }  // riproverà al prossimo avvio
   return recovered;
 }
 
@@ -588,22 +597,26 @@ function migrateLegacyB() {
    "12,50" "12.50" "1.500" "1.500,00" "1,500.00" "€ 1.500" → numero. */
 function num(x) {
   var s = String(x == null ? '' : x).replace(/[\s €']/g, '').replace(/[−–]/g, '-');
+  s = s.replace(/^\+/, '').replace(/([.,])\1+/g, '$1').replace(/[.,]+$/, '');
   if (!s) return 0;
   var c = s.lastIndexOf(','), d = s.lastIndexOf('.');
   if (c >= 0 && d >= 0) {
     // ci sono entrambi: l'ultimo separatore è quello dei decimali
     s = c > d ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
   } else if (c >= 0) {
-    s = s.match(/,/g).length > 1 ? s.replace(/,/g, '') : s.replace(',', '.');
+    s = /^-?\d{1,3}(,\d{3}){2,}$/.test(s) ? s.replace(/,/g, '') : s.replace(/,(?=.*,)/g, '').replace(',', '.');
   } else if (d >= 0) {
     // solo punti: "1.500" e "12.500.000" sono migliaia, "12.50" e "0.500" decimali
-    if (s.match(/\./g).length > 1 || /^-?[1-9]\d{0,2}\.\d{3}$/.test(s)) s = s.replace(/\./g, '');
+    if (/^-?[1-9]\d{0,2}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+    else s = s.replace(/\.(?=.*\.)/g, '');
   }
   var n = parseFloat(s);
   return isFinite(n) ? n : 0;
 }
+function r2(n) { var r = Math.round(Math.abs(n) * 100) / 100; return n < 0 && r ? -r : r; }
 function fmt(n) {
   if (!isFinite(n)) n = 0;
+  n = r2(n);
   return '€' + n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function esc(s) {
@@ -647,7 +660,7 @@ function updateAllTotals() {
   var t = monthTotals(currentMonth);
   var tot = t.carta + t.contanti;
   var entrate = t.entrateCarta + t.entrateContanti;
-  var saldo = entrate - tot;
+  var saldo = r2(entrate - tot);
 
   el('sum-entrate-tot').textContent = entrate > 0 ? fmt(entrate) : '';
   el('sum-carta').textContent = fmt(t.carta);
@@ -678,9 +691,9 @@ function updateAllTotals() {
   for (var mi = 0; mi < MONTHS.length; mi++) {
     if (mi >= 1) saldoCarta = 0;
     var mt = monthTotals(mi);
-    saldoCarta += mt.entrateCarta - mt.carta;
-    saldoCash += mt.entrateContanti - mt.contanti;
-    saldoCartaTotale += mt.entrateCarta - mt.carta;
+    saldoCarta = r2(saldoCarta + mt.entrateCarta - mt.carta);
+    saldoCash = r2(saldoCash + mt.entrateContanti - mt.contanti);
+    saldoCartaTotale = r2(saldoCartaTotale + mt.entrateCarta - mt.carta);
 
     html += '<div class="banca-row"><div>' +
       '<div class="banca-month">' + MONTHS[mi] + '</div>' +
@@ -750,10 +763,10 @@ function renderVoci(ci) {
   for (var ii = 0; ii < items.length; ii++) {
     var it = items[ii];
     html += '<div class="voce-item">' +
-      '<input type="text" class="voce-desc" placeholder="Descrizione (opzionale)" value="' + esc(it.desc) + '" data-field="voce-desc" data-ci="' + ci + '" data-ii="' + ii + '" autocomplete="off">' +
+      '<input type="text" class="voce-desc" placeholder="Descrizione (opzionale)" value="' + esc(it.desc) + '" data-field="voce-desc" data-mi="' + currentMonth + '" data-ci="' + ci + '" data-ii="' + ii + '" autocomplete="off">' +
       '<div class="voce-row">' +
         '<div class="voce-wrap"><span class="currency">€</span>' +
-          '<input type="text" inputmode="decimal" placeholder="0.00" value="' + esc(it.amount) + '" data-field="voce-amount" data-ci="' + ci + '" data-ii="' + ii + '" autocomplete="off">' +
+          '<input type="text" inputmode="decimal" placeholder="0.00" value="' + esc(it.amount) + '" data-field="voce-amount" data-mi="' + currentMonth + '" data-ci="' + ci + '" data-ii="' + ii + '" autocomplete="off">' +
         '</div>' +
         '<button class="tipo-btn ' + (it.tipo === 'carta' ? 'tipo-carta' : 'tipo-cash') + '" data-action="toggle-tipo" data-ci="' + ci + '" data-ii="' + ii + '">' + (it.tipo === 'carta' ? '💳 Carta' : '💵 Contanti') + '</button>' +
         '<button class="voce-del" data-action="del-voce" data-ci="' + ci + '" data-ii="' + ii + '">✕</button>' +
@@ -772,13 +785,21 @@ function rerenderPreservingUI() {
     var b = el('cat-body-' + ci);
     if (b && b.classList.contains('open')) open.push(ci);
   }
-  var ae = document.activeElement, sel = null, caret = null;
+  var ae = document.activeElement, sel = null, ss = null, se = null, sd;
   if (ae && ae.tagName === 'INPUT' && ae.dataset.field) {
-    sel = ae.id ? '#' + ae.id
-      : '[data-field="' + ae.dataset.field + '"][data-ci="' + ae.dataset.ci + '"][data-ii="' + ae.dataset.ii + '"]';
-    try { caret = ae.selectionStart; } catch (e) {}
+    if (ae.id) sel = '#' + ae.id;
+    else {
+      // il focus torna sulla stessa voce solo se mese e numero di voci non sono cambiati
+      var list = ae.closest('.voci-list');
+      var before = list ? list.querySelectorAll('.voce-item').length : -1;
+      var items = S.months[currentMonth].cats[CATEGORIES[+ae.dataset.ci]];
+      if (+ae.dataset.mi === currentMonth && items && items.length === before)
+        sel = '[data-field="' + ae.dataset.field + '"][data-ci="' + ae.dataset.ci + '"][data-ii="' + ae.dataset.ii + '"]';
+    }
+    try { ss = ae.selectionStart; se = ae.selectionEnd; sd = ae.selectionDirection; } catch (e) {}
   }
-  renderSpese();
+  rendering = true;
+  try { renderSpese(); } finally { rendering = false; }
   for (var i = 0; i < open.length; i++) {
     el('cat-body-' + open[i]).classList.add('open');
     el('cat-arrow-' + open[i]).textContent = '⌄';
@@ -787,7 +808,7 @@ function rerenderPreservingUI() {
     var n = document.querySelector(sel);
     if (n) {
       if (n !== document.activeElement) n.focus();
-      try { if (caret != null) n.setSelectionRange(caret, caret); } catch (e) {}
+      try { if (ss != null) n.setSelectionRange(ss, se, sd); } catch (e) {}
     }
   }
 }
@@ -845,10 +866,15 @@ function renderRiepilogo() {
    ══════════════════════════════════════════════════════════════════════ */
 function handleFieldEvent(e) {
   var t = e.target;
-  if (!t || !t.dataset || !t.dataset.field) return;
+  if (rendering || !t || !t.dataset || !t.dataset.field || !t.isConnected) return;
   var field = t.dataset.field;
+  var isVoce = field === 'voce-desc' || field === 'voce-amount';
+  if (isVoce && +t.dataset.mi !== currentMonth) return;  // campo di un mese non più mostrato
   var value = t.value;
   var resynced = syncFromStorage();   // prima i dati più recenti, poi la modifica
+  // Se un'altra finestra ha cambiato i dati, la posizione della voce potrebbe
+  // non essere più la stessa: si mostra la situazione aggiornata senza scrivere.
+  if (resynced && isVoce) { rerenderPreservingUI(); return; }
   var m = S.months[currentMonth];
   var target, key;
 
@@ -863,7 +889,7 @@ function handleFieldEvent(e) {
   } else return;
 
   var saved = true;
-  if (target[key] !== value) {
+  if (target[key] !== value || unsaved) {
     target[key] = value;
     saved = persist();
   }
@@ -937,7 +963,7 @@ document.addEventListener('click', function (e) {
 
   } else if (a === 'toggle-saldo-sign') {
     var n = num(S.global.saldoIniziale);
-    S.global.saldoIniziale = n === 0 ? '' : String(-n);
+    S.global.saldoIniziale = n === 0 ? '' : String(-n).replace('.', ',');
     el('inp-saldo-iniziale').value = S.global.saldoIniziale;
     persist();
     updateAllTotals();
@@ -977,7 +1003,11 @@ function onResume() {
   var changed = syncFromStorage();
   if (!monthPickedByUser) {
     var mi = monthForDate(new Date());
-    if (mi !== currentMonth) { currentMonth = mi; changed = true; }
+    if (mi !== currentMonth) {
+      currentMonth = mi; changed = true;
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      el('monthModal').classList.remove('open');
+    }
   }
   if (changed) rerenderPreservingUI();
 }
@@ -1021,10 +1051,18 @@ function showToast(msg, kind, ms) {
 
 /* ── AVVIO ────────────────────────────────────────────────────────── */
 lastRaw = readRaw();
+if (lastRaw === undefined) lastRaw = null;
+var recovered = [];
+var corrupt = false;
+if (lastRaw) { try { JSON.parse(lastRaw); } catch (e) { corrupt = true; } }
+if (corrupt) {  // dati illeggibili: copia di sicurezza prima di qualunque scrittura
+  try { if (!localStorage.getItem('spese2026-illeggibile')) localStorage.setItem('spese2026-illeggibile', lastRaw); } catch (e) {}
+}
 S = loadState(lastRaw);
-var recovered = migrateLegacyB();
+if (!corrupt) recovered = migrateLegacyB();
 renderSpese();
-if (recovered.length) showToast('↺ Dati recuperati: ' + recovered.join(', '), 'ok', 5000);
+if (corrupt) showToast('⚠️ Dati salvati illeggibili: copia di sicurezza conservata', 'error', 6000);
+else if (recovered.length) showToast('↺ Dati recuperati: ' + recovered.join(', '), 'ok', 5000);
 
 // Chiede al browser di non cancellare mai i dati salvati per liberare spazio.
 try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}

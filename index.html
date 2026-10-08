@@ -280,12 +280,32 @@ body {
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.error { background: var(--danger); color: #fff; }
 
+/* ── AVVISI ── */
+.alert {
+  background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.5);
+  border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px;
+  font-size: .82rem; line-height: 1.45; color: var(--text);
+}
+.alert.ok { background: rgba(0,212,170,.10); border-color: rgba(0,212,170,.5); }
+.alert-title { font-weight: 700; margin-bottom: 4px; }
+.alert-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.alert-actions button, .alert-actions a {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--accent); font-size: .8rem; font-weight: 600; padding: 9px 12px;
+  cursor: pointer; text-decoration: none; font-family: var(--font);
+}
+.diag-row { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: .8rem; }
+.diag-row:last-child { border-bottom: none; }
+.diag-row span:first-child { color: var(--muted); }
+.diag-row span:last-child { text-align: right; word-break: break-all; }
+body.booting .content, body.booting .bottom-nav { pointer-events: none; }
+
 /* ── PROGRESS BAR ── */
 .progress-bar-bg { background: var(--bg3); border-radius: 4px; height: 6px; overflow: hidden; }
 .progress-bar-fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width .4s; }
 </style>
 </head>
-<body>
+<body class="booting">
 
 <!-- TOP BAR -->
 <div class="topbar">
@@ -303,6 +323,8 @@ body {
 </div>
 
 <div class="content">
+
+  <div id="alert-box"></div>
 
   <!-- ══ TAB: SPESE ══ -->
   <div class="section active" id="tab-spese">
@@ -425,6 +447,14 @@ body {
       <div id="backup-list"></div>
     </div>
 
+    <div class="card">
+      <div class="card-title">🔎 Stato del salvataggio</div>
+      <div id="diag-box"></div>
+      <div class="alert-actions">
+        <button data-action="copy-diag">📋 Copia questi dati</button>
+      </div>
+    </div>
+
   </div>
 
 </div>
@@ -483,6 +513,7 @@ var S = null;                   // stato globale in memoria
 var lastRaw = null;             // ultimo JSON letto o scritto da QUESTA istanza
 var unsaved = false;            // l'ultimo salvataggio è fallito
 var rendering = false;          // durante il ridisegno si ignorano gli eventi dei campi
+var lastJson = null;            // ultimo stato salvato da questa istanza (anche se localStorage ha fallito)
 
 // undefined = lettura impossibile (diverso da null = niente salvato)
 function readRaw() {
@@ -494,10 +525,11 @@ function loadState(rawStr) {
   var raw = {};
   try { raw = JSON.parse(rawStr) || {}; } catch (e) { raw = {}; }
   if (typeof raw !== 'object') raw = {};
-  var s = { global: { saldoIniziale: '' }, months: [], legacyBImported: !!raw.legacyBImported, extra: {} };
+  var s = { global: { saldoIniziale: '' }, months: [], legacyBImported: !!raw.legacyBImported, extra: {},
+            rev: +raw.rev || 0, savedAt: +raw.savedAt || 0 };
   // Tutto ciò che questa versione non conosce viene conservato così com'è.
   for (var rk in raw) {
-    if (rk !== 'global' && rk !== 'legacyBImported' && !/^[0-6]$/.test(rk)) s.extra[rk] = raw[rk];
+    if (rk !== 'global' && rk !== 'legacyBImported' && rk !== 'rev' && rk !== 'savedAt' && !/^[0-6]$/.test(rk)) s.extra[rk] = raw[rk];
   }
   if (raw.global && typeof raw.global === 'object') for (var gk in raw.global) s.global[gk] = raw.global[gk];
   if (raw.global && raw.global.saldoIniziale != null) s.global.saldoIniziale = str(raw.global.saldoIniziale);
@@ -539,12 +571,18 @@ function loadState(rawStr) {
 
 /* Salva TUTTO lo stato e verifica rileggendo. Restituisce true se riuscito. */
 function persist() {
+  S.rev = (S.rev || 0) + 1;      // ogni salvataggio ha un numero crescente:
+  S.savedAt = Date.now();        // all'avvio vince la copia con il numero più alto
   var out = {};
   for (var xk in S.extra) out[xk] = S.extra[xk];
   out.global = S.global;
   out.legacyBImported = S.legacyBImported ? 1 : 0;
+  out.rev = S.rev;
+  out.savedAt = S.savedAt;
   for (var mi = 0; mi < S.months.length; mi++) out[mi] = S.months[mi];
   var json = JSON.stringify(out);
+  lastJson = json;
+  var idbDone = idbPut('main', json);   // memoria di riserva: scritta anche se localStorage fallisce
   try {
     localStorage.getItem(STORAGE_KEY);  // se non si può nemmeno leggere, non scrivere
     localStorage.setItem(STORAGE_KEY, json);
@@ -554,7 +592,8 @@ function persist() {
     return true;
   } catch (e) {
     unsaved = true;
-    showToast('⚠️ Salvataggio non riuscito', 'error', 4000);
+    // l'avviso rosso solo se non è riuscita nemmeno la memoria di riserva
+    idbDone.then(function (ok) { if (!ok) showToast('⚠️ Salvataggio non riuscito', 'error', 4000); });
     return false;
   }
 }
@@ -898,7 +937,7 @@ function renderRiepilogo() {
    ══════════════════════════════════════════════════════════════════════ */
 function handleFieldEvent(e) {
   var t = e.target;
-  if (rendering || !t || !t.dataset || !t.dataset.field || !t.isConnected) return;
+  if (!ready || rendering || !t || !t.dataset || !t.dataset.field || !t.isConnected) return;
   var field = t.dataset.field;
   var isVoce = field === 'voce-desc' || field === 'voce-amount';
   if (isVoce && +t.dataset.mi !== currentMonth) return;  // campo di un mese non più mostrato
@@ -947,6 +986,7 @@ document.addEventListener('click', function (e) {
   // Azioni che modificano i dati: prima si ricaricano quelli più recenti.
   // Se erano cambiati e l'azione punta a una voce precisa, si mostra la
   // situazione aggiornata invece di rischiare di toccare la voce sbagliata.
+  if (!ready) return;
   var resynced = false;
   if (a === 'add-voce' || a === 'del-voce' || a === 'toggle-tipo' || a === 'toggle-saldo-sign') {
     resynced = syncFromStorage();
@@ -1022,8 +1062,16 @@ document.addEventListener('click', function (e) {
     el('import-file').click();
 
   } else if (a === 'restore-backup') {
-    var raw = null; try { raw = localStorage.getItem(t.dataset.key); } catch (e2) {}
-    if (raw && confirm('Ripristinare questa copia?\n(I dati attuali restano tra le copie automatiche.)')) restoreFrom(raw);
+    readBackup(t.dataset.src, t.dataset.key).then(function (raw) {
+      if (raw && confirm('Ripristinare questa copia?\n(I dati attuali restano tra le copie automatiche.)')) restoreFrom(raw);
+    });
+
+  } else if (a === 'copy-diag') {
+    copyDiag();
+
+  } else if (a === 'dismiss-alert') {
+    var box = t.closest('.alert');
+    if (box) box.remove();
 
   } else if (a === 'close-month-modal') {
     el('monthModal').classList.remove('open');
@@ -1036,13 +1084,14 @@ function switchTab(tab) {
   var tabs = document.querySelectorAll('.tab, .nav-btn');
   for (var j = 0; j < tabs.length; j++) tabs[j].classList.toggle('active', tabs[j].dataset.tab === tab);
   el('tab-' + tab).classList.add('active');
-  if (tab === 'riepilogo') renderBackups();
+  if (tab === 'riepilogo') { renderBackups(); renderDiag(); }
   if (syncFromStorage()) rerenderPreservingUI(); else updateAllTotals();
 }
 
 /* Quando l'app torna in primo piano (o un'altra scheda salva) si riallinea
    ai dati salvati e, se l'utente non ha scelto un mese a mano, al mese di oggi. */
 function onResume() {
+  if (!ready) return;
   var changed = syncFromStorage();
   if (!monthPickedByUser) {
     var mi = monthForDate(new Date());
@@ -1054,13 +1103,26 @@ function onResume() {
   }
   if (changed) rerenderPreservingUI();
 }
+/* Uscendo dall'app: copia di sicurezza e scrittura su disco forzata
+   della memoria di riserva, prima che Android possa chiudere l'app. */
+function revOf(raw) { try { return +JSON.parse(raw).rev || 0; } catch (e) { return -1; } }
+function onLeave() {
+  if (!ready) return;
+  // la copia più recente tra quella di questa istanza e quella in localStorage
+  var raw = readRaw(), best = lastJson;
+  if (raw && (!best || revOf(raw) >= revOf(best))) best = raw;
+  if (!best) return;
+  idbPut('main', best, true);
+  if (hasData(best)) makeBackup(best);
+}
 document.addEventListener('visibilitychange', function () {
   if (document.visibilityState === 'visible') onResume();
-  else if (lastRaw && hasData(lastRaw)) makeBackup(lastRaw);  // copia ogni volta che si esce dall'app
+  else onLeave();
 });
-window.addEventListener('pagehide', function () { if (lastRaw && hasData(lastRaw)) makeBackup(lastRaw); });
+window.addEventListener('pagehide', onLeave);
 window.addEventListener('pageshow', function (e) { if (e.persisted) onResume(); });
 window.addEventListener('storage', function (e) {
+  if (!ready) return;
   if (e.key === STORAGE_KEY || e.key === null) {
     if (syncFromStorage()) rerenderPreservingUI();
   }
@@ -1119,17 +1181,55 @@ function stamp() {
 /* Salva una copia del JSON dato, se diversa dall'ultima copia. */
 function makeBackup(raw) {
   if (!raw) return;
+  var k = stamp();
   try {
     var keys = backupKeys();
-    if (keys.length && localStorage.getItem(keys[0]) === raw) return;
-    localStorage.setItem(BK_PREFIX + stamp(), raw);
-    keys = backupKeys();
-    for (var i = BK_KEEP; i < keys.length; i++) localStorage.removeItem(keys[i]);
+    if (!(keys.length && localStorage.getItem(keys[0]) === raw)) {
+      localStorage.setItem(BK_PREFIX + k, raw);
+      keys = backupKeys();
+      for (var i = BK_KEEP; i < keys.length; i++) localStorage.removeItem(keys[i]);
+    }
   } catch (e) {}
+  // la stessa copia anche nella memoria di riserva
+  idbBackups().then(function (list) {
+    if (list.length && list[0].raw === raw) return null;
+    return idbPut('backup:' + k, raw).then(idbBackups).then(function (l2) {
+      if (l2.length <= BK_KEEP) return;
+      idbTx('readwrite', function (st) { for (var j = BK_KEEP; j < l2.length; j++) st['delete'](l2[j].key); });
+    });
+  });
+}
+/* Tutte le copie (localStorage + memoria di riserva), la più recente per prima. */
+function allBackups() {
+  var list = [], seen = {}, keys = backupKeys();
+  for (var i = 0; i < keys.length; i++) {
+    var raw = null; try { raw = localStorage.getItem(keys[i]); } catch (e) {}
+    var st = keys[i].substring(BK_PREFIX.length);
+    list.push({ stamp: st, src: 'ls', key: keys[i], raw: raw });
+    seen[st] = 1;
+  }
+  return idbBackups().then(function (ib) {
+    for (var j = 0; j < ib.length; j++) {
+      var st2 = String(ib[j].key).substring(7);
+      if (!seen[st2]) { list.push({ stamp: st2, src: 'idb', key: ib[j].key, raw: ib[j].raw }); seen[st2] = 1; }
+    }
+    list.sort(function (a, b) { return a.stamp < b.stamp ? 1 : (a.stamp > b.stamp ? -1 : 0); });
+    return list;
+  });
+}
+function readBackup(src, key) {
+  if (src === 'idb') return idbGet(key).then(function (v) { return typeof v === 'string' ? v : null; });
+  var raw = null; try { raw = localStorage.getItem(key); } catch (e) {}
+  return Promise.resolve(raw);
+}
+function backupLabel(t) {   // 2026-10-02_093015 → 02/10/2026 09:30
+  return t.substring(8, 10) + '/' + t.substring(5, 7) + '/' + t.substring(0, 4) + ' ' + t.substring(11, 13) + ':' + t.substring(13, 15);
 }
 function hasData(raw) {
+  try { return stateHasData(loadState(raw)); } catch (e) { return false; }
+}
+function stateHasData(st) {
   try {
-    var st = loadState(raw);
     if (num(st.global.saldoIniziale) !== 0) return true;
     for (var mi = 0; mi < MONTHS.length; mi++) {
       var m = st.months[mi];
@@ -1152,17 +1252,16 @@ function summary(raw) {
   } catch (e) { return ''; }
 }
 function renderBackups() {
-  var keys = backupKeys(), html = '';
-  for (var i = 0; i < keys.length; i++) {
-    var raw = null; try { raw = localStorage.getItem(keys[i]); } catch (e) {}
-    var t = keys[i].substring(BK_PREFIX.length);  // 2026-10-02_093015
-    var label = t.substring(8, 10) + '/' + t.substring(5, 7) + '/' + t.substring(0, 4) + ' ' + t.substring(11, 13) + ':' + t.substring(13, 15);
-    html += '<div class="banca-row" style="padding:8px 0"><div>' +
-      '<div style="font-size:.85rem;font-weight:600">' + label + '</div>' +
-      '<div class="banca-detail">' + esc(summary(raw)) + '</div></div>' +
-      '<button class="tipo-btn tipo-carta" data-action="restore-backup" data-key="' + esc(keys[i]) + '">Ripristina</button></div>';
-  }
-  el('backup-list').innerHTML = html || '<p style="color:var(--muted);font-size:.8rem">Nessuna copia ancora</p>';
+  allBackups().then(function (list) {
+    var html = '';
+    for (var i = 0; i < list.length && i < BK_KEEP; i++) {
+      html += '<div class="banca-row" style="padding:8px 0"><div>' +
+        '<div style="font-size:.85rem;font-weight:600">' + backupLabel(list[i].stamp) + '</div>' +
+        '<div class="banca-detail">' + esc(summary(list[i].raw)) + '</div></div>' +
+        '<button class="tipo-btn tipo-carta" data-action="restore-backup" data-src="' + list[i].src + '" data-key="' + esc(list[i].key) + '">Ripristina</button></div>';
+    }
+    el('backup-list').innerHTML = html || '<p style="color:var(--muted);font-size:.8rem">Nessuna copia ancora</p>';
+  });
 }
 /* Sostituisce i dati con quelli dati, dopo aver salvato una copia di quelli attuali
    (così anche un ripristino si può annullare). */
@@ -1175,10 +1274,13 @@ function restoreFrom(raw) {
   }
   syncFromStorage();
   makeBackup(readRaw() || null);
+  var prevRev = S.rev || 0;
   S = loadState(raw);
+  S.rev = Math.max(S.rev || 0, prevRev);   // il numero di revisione non torna mai indietro
   if (persist()) {
     rerenderPreservingUI();
     renderBackups();
+    clearAlert('recovery');
     showToast('✓ Dati ripristinati', 'ok', 3000);
   }
 }
@@ -1205,10 +1307,261 @@ el('import-file').addEventListener('change', function () {
   this.value = '';
 });
 
+/* ══════════════════════════════════════════════════════════════════════
+   MEMORIA DI RISERVA (IndexedDB)
+   Ogni salvataggio viene scritto anche qui. localStorage può tenere le
+   ultime modifiche in memoria per alcuni secondi prima di scriverle su
+   disco: se Android chiude l'app in quel momento, vanno perse. IndexedDB
+   le consegna al disco subito. All'avvio vince la copia più recente
+   (numero di revisione più alto).
+   ══════════════════════════════════════════════════════════════════════ */
+var IDB_NAME = 'spese2026';
+var IDB_STORE = 'dati';
+var idbConn = null;
+var idbAvailable = null;   // null = non ancora verificato
+
+function idbOpen() {
+  if (!idbConn) idbConn = new Promise(function (resolve) {
+    try {
+      var req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = function () { req.result.createObjectStore(IDB_STORE); };
+      req.onsuccess = function () {
+        var db = req.result;
+        db.onversionchange = function () { db.close(); idbConn = null; };
+        db.onclose = function () { idbConn = null; };
+        idbAvailable = true;
+        resolve(db);
+      };
+      req.onerror = req.onblocked = function () { idbAvailable = false; idbConn = null; resolve(null); };
+    } catch (e) { idbAvailable = false; resolve(null); }
+  });
+  return idbConn;
+}
+/* Esegue fn(store, out) in una transazione; risolve con out, o null se fallisce. */
+function idbTx(mode, fn, strict) {
+  return idbOpen().then(function (db) {
+    if (!db) return null;
+    return new Promise(function (resolve) {
+      var tx, out = { value: undefined };
+      try {
+        tx = strict ? db.transaction(IDB_STORE, mode, { durability: 'strict' }) : db.transaction(IDB_STORE, mode);
+        fn(tx.objectStore(IDB_STORE), out);
+      } catch (e) { idbConn = null; resolve(null); return; }
+      tx.oncomplete = function () { resolve(out); };
+      tx.onerror = tx.onabort = function () { resolve(null); };
+    });
+  }, function () { return null; });
+}
+function idbGet(key) {
+  return idbTx('readonly', function (st, out) {
+    var r = st.get(key);
+    r.onsuccess = function () { out.value = r.result; };
+  }).then(function (o) { return o ? o.value : null; });
+}
+function idbPut(key, value, strict) {
+  return idbTx('readwrite', function (st) { st.put(value, key); }, strict).then(function (o) { return !!o; });
+}
+/* Copie nella memoria di riserva: [{key, raw}], la più recente per prima. */
+function idbBackups() {
+  return idbTx('readonly', function (st, out) {
+    out.value = [];
+    var r = st.openCursor(IDBKeyRange.bound('backup:', 'backup:￿'));
+    r.onsuccess = function () {
+      var c = r.result;
+      if (c) { out.value.push({ key: c.key, raw: c.value }); c['continue'](); }
+    };
+  }).then(function (o) { return o && o.value ? o.value.reverse() : []; });
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   DIAGNOSI — dice in che modo è aperta l'app e se il browser conserva
+   davvero i dati tra un'apertura e l'altra.
+   ══════════════════════════════════════════════════════════════════════ */
+var APP_VERSION = '8 ottobre 2026';
+var DIAG_KEY = 'spese2026-diag';
+var diag = { opens: 0, firstSeen: 0, prevOpen: 0, lsWiped: false, bootSource: '' };
+var persisted = null;
+
+function updateDiag(idbD) {
+  var lsD = null;
+  try { lsD = JSON.parse(localStorage.getItem(DIAG_KEY)); } catch (e) {}
+  if (!lsD || typeof lsD !== 'object') lsD = null;
+  if (!idbD || typeof idbD !== 'object') idbD = null;
+  var a = lsD || {}, b = idbD || {};
+  var first = Math.min(+a.firstSeen || Infinity, +b.firstSeen || Infinity);
+  var d = {
+    firstSeen: isFinite(first) ? first : Date.now(),
+    opens: Math.max(+a.opens || 0, +b.opens || 0) + 1,
+    lastOpen: Date.now()
+  };
+  diag.prevOpen = Math.max(+a.lastOpen || 0, +b.lastOpen || 0);
+  diag.opens = d.opens;
+  diag.firstSeen = d.firstSeen;
+  // la memoria di riserva ricordava l'app ma localStorage no: il browser l'ha svuotato
+  diag.lsWiped = !!idbD && !lsD;
+  try { localStorage.setItem(DIAG_KEY, JSON.stringify(d)); } catch (e) {}
+  idbPut('diag', d);
+}
+
+function envInfo() {
+  var ua = navigator.userAgent || '';
+  var e = { ua: ua, standalone: false, inApp: '', priv: 'unknown' };
+  try {
+    e.standalone = matchMedia('(display-mode: standalone)').matches ||
+      matchMedia('(display-mode: fullscreen)').matches ||
+      matchMedia('(display-mode: minimal-ui)').matches || navigator.standalone === true;
+  } catch (x) {}
+  e.webview = /; wv\)/.test(ua);
+  var apps = [[/FBAN|FBAV|FB_IAB/, 'Facebook'], [/Instagram/, 'Instagram'], [/Messenger/, 'Messenger'],
+    [/LinkedInApp/, 'LinkedIn'], [/musical_ly|TikTok|BytedanceWebview/, 'TikTok'], [/Snapchat/, 'Snapchat'],
+    [/ Line\//, 'LINE'], [/Telegram/, 'Telegram'], [/ GSA\//, 'app Google'], [/Twitter/, 'X'], [/Pinterest/, 'Pinterest']];
+  for (var i = 0; i < apps.length; i++) if (apps[i][0].test(ua)) { e.inApp = apps[i][1]; break; }
+  if (/DuckDuckGo\//.test(ua)) e.browser = 'DuckDuckGo';
+  else if (/ Focus\/| Klar\//.test(ua)) e.browser = 'Firefox Focus';
+  else if (/SamsungBrowser\//.test(ua)) e.browser = 'Samsung Internet';
+  else if (/Firefox\//.test(ua)) e.browser = 'Firefox';
+  else if (/ EdgA?\//.test(ua)) e.browser = 'Edge';
+  else if (/ OPR\/| OPT\//.test(ua)) e.browser = 'Opera';
+  else if (/MiuiBrowser\//.test(ua)) e.browser = 'Mi Browser';
+  else if (navigator.brave) e.browser = 'Brave';
+  else if (/Chrome\//.test(ua)) e.browser = e.webview ? 'WebView di Android' : 'Chrome';
+  else e.browser = 'altro';
+  var v = ua.match(/(?:SamsungBrowser|Firefox|Chrome)\/(\d+)/);
+  if (v) e.browser += ' ' + v[1];
+  e.wipesOnClose = /DuckDuckGo|Focus/.test(e.browser);
+  return e;
+}
+
+/* Navigazione in incognito (Chrome e derivati): la quota di spazio concessa
+   è molto più piccola che in una scheda normale. */
+function detectPrivate() {
+  return new Promise(function (resolve) {
+    try {
+      var ua = navigator.userAgent || '';
+      if (!/Chrome\//.test(ua) || /Firefox\//.test(ua) || navigator.brave || !navigator.storage || !navigator.storage.estimate) return resolve('unknown');
+      navigator.storage.estimate().then(function (q) {
+        if (!q || !q.quota) return resolve('unknown');
+        var heap = (window.performance && performance.memory && performance.memory.jsHeapSizeLimit) || 1073741824;
+        resolve(q.quota < 2 * heap ? 'yes' : 'no');
+      }, function () { resolve('unknown'); });
+    } catch (e) { resolve('unknown'); }
+  });
+}
+
+/* ── AVVISI IN CIMA ALLA PAGINA ───────────────────────────────────── */
+function showAlert(id, html, kind) {
+  clearAlert(id);
+  var d = document.createElement('div');
+  d.className = 'alert' + (kind === 'ok' ? ' ok' : '');
+  d.setAttribute('data-alert', id);
+  d.innerHTML = html;
+  el('alert-box').appendChild(d);
+}
+function clearAlert(id) {
+  var o = document.querySelector('[data-alert="' + id + '"]');
+  if (o) o.remove();
+}
+
+function checkEnvironment() {
+  var e = ENV;
+  var chromeLink = 'intent://' + location.host + location.pathname + '#Intent;scheme=https;package=com.android.chrome;end';
+  if (e.webview || e.inApp) {
+    showAlert('env', '<div class="alert-title">⚠️ L\'app è aperta dentro un\'altra app' + (e.inApp ? ' (' + esc(e.inApp) + ')' : '') + '</div>' +
+      'Qui il telefono può cancellare i dati quando la chiudi. Aprila sempre da <b>Chrome</b> o dall\'icona sulla schermata Home.' +
+      '<div class="alert-actions"><a href="' + chromeLink + '">Apri in Chrome</a><button data-action="dismiss-alert">Ho capito</button></div>');
+  } else if (e.wipesOnClose) {
+    showAlert('env', '<div class="alert-title">⚠️ ' + esc(e.browser) + ' cancella i dati quando lo chiudi</div>' +
+      'Questo browser elimina tutto ciò che salvano i siti. Apri l\'app con <b>Chrome</b>.' +
+      '<div class="alert-actions"><a href="' + chromeLink + '">Apri in Chrome</a><button data-action="dismiss-alert">Ho capito</button></div>');
+  }
+  if (diag.lsWiped) {
+    showAlert('wiped', '<div class="alert-title">Il browser aveva cancellato la memoria dell\'app</div>' +
+      (diag.bootSource === 'recuperati dalla memoria di riserva'
+        ? 'I dati sono stati recuperati dalla memoria di riserva.'
+        : 'Se mancano dati, usa le copie automatiche nella scheda Riepilogo.') +
+      '<div class="alert-actions"><button data-action="dismiss-alert">Ho capito</button></div>', 'ok');
+  }
+  detectPrivate().then(function (r) {
+    ENV.priv = r;
+    if (r === 'yes' && !e.webview && !e.inApp) {
+      showAlert('private', '<div class="alert-title">⚠️ Sei in navigazione in incognito</div>' +
+        'In incognito tutto viene cancellato quando chiudi. Apri l\'app in una scheda <b>normale</b> di Chrome ' +
+        '(non in incognito) e da lì aggiungila alla schermata Home.' +
+        '<div class="alert-actions"><button data-action="dismiss-alert">Ho capito</button></div>');
+    }
+  });
+}
+
+/* Se all'apertura non ci sono dati ma esiste una copia che ne contiene, la propone. */
+function checkRecovery() {
+  if (stateHasData(S)) return;
+  allBackups().then(function (list) {
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].raw && hasData(list[i].raw)) {
+        showAlert('recovery', '<div class="alert-title">⚠️ Non ci sono dati, ma c\'è una copia salvata</div>' +
+          'Copia del ' + backupLabel(list[i].stamp) + ': ' + esc(summary(list[i].raw)) + '.' +
+          '<div class="alert-actions"><button data-action="restore-backup" data-src="' + list[i].src + '" data-key="' + esc(list[i].key) + '">↺ Ripristina questa copia</button>' +
+          '<button data-action="dismiss-alert">No, grazie</button></div>');
+        return;
+      }
+    }
+  });
+}
+
+function fmtDate(ms) {
+  if (!ms) return '—';
+  var d = new Date(ms), p = function (n) { return (n < 10 ? '0' : '') + n; };
+  return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function diagRows(backupCount) {
+  var e = ENV;
+  return [
+    ['Aperta come', (e.webview || e.inApp) ? '⚠️ dentro un\'altra app' + (e.inApp ? ' (' + e.inApp + ')' : '')
+      : (e.standalone ? 'app sulla schermata Home' : 'scheda del browser')],
+    ['Browser', e.browser],
+    ['In incognito', e.priv === 'yes' ? '⚠️ probabilmente sì' : (e.priv === 'no' ? 'no' : 'non determinabile')],
+    ['Memoria protetta dal browser', persisted === true ? 'sì' : (persisted === false ? 'no' : '—')],
+    ['Memoria di riserva', idbAvailable ? 'attiva' : (idbAvailable === false ? '⚠️ non disponibile' : '…')],
+    ['Dati all\'apertura', diag.bootSource || '—'],
+    ['Ultimo salvataggio', S && S.savedAt ? fmtDate(S.savedAt) + ' (n. ' + S.rev + ')' : '—'],
+    ['Aperture registrate', diag.opens + (diag.firstSeen ? ' dal ' + fmtDate(diag.firstSeen) : '')],
+    ['Apertura precedente', diag.prevOpen ? fmtDate(diag.prevOpen) : 'nessuna'],
+    ['Copie automatiche', backupCount == null ? '…' : String(backupCount)],
+    ['Versione app', APP_VERSION],
+    ['Indirizzo', location.href]
+  ];
+}
+function renderDiag() {
+  var paint = function (n) {
+    var rows = diagRows(n), html = '';
+    for (var i = 0; i < rows.length; i++) html += '<div class="diag-row"><span>' + esc(rows[i][0]) + '</span><span>' + esc(rows[i][1]) + '</span></div>';
+    if (diag.opens === 1) html += '<p style="font-size:.75rem;color:var(--muted);margin-top:8px">Se avevi già usato l\'app su questo telefono, "1 apertura" significa che il browser ha cancellato i suoi dati.</p>';
+    el('diag-box').innerHTML = html;
+  };
+  paint(null);
+  allBackups().then(function (l) { paint(l.length); });
+}
+function copyDiag() {
+  allBackups().then(function (l) {
+    var rows = diagRows(l.length), txt = 'Spese 2026 — stato del salvataggio\n';
+    for (var i = 0; i < rows.length; i++) txt += rows[i][0] + ': ' + rows[i][1] + '\n';
+    txt += 'UA: ' + ENV.ua + '\n';
+    var done = function () { showToast('📋 Copiato: incollalo nella chat', 'ok', 3000); };
+    try {
+      navigator.clipboard.writeText(txt).then(done, function () { showToast('Fai uno screenshot di questo riquadro', 'ok', 4000); });
+    } catch (e) { showToast('Fai uno screenshot di questo riquadro', 'ok', 4000); }
+  });
+}
+
 /* ── AVVIO ────────────────────────────────────────────────────────── */
+var ready = false;       // finché i dati non sono caricati, le modifiche sono bloccate
+var bootDone = false;
+var bootRev = 0;
+var ENV = envInfo();
+
 lastRaw = readRaw();
 if (lastRaw === undefined) lastRaw = null;
-var recovered = [];
+var bootRaw = lastRaw;
 var corrupt = false;
 if (lastRaw) { try { JSON.parse(lastRaw); } catch (e) { corrupt = true; } }
 if (corrupt) {  // dati illeggibili: copia di sicurezza prima di qualunque scrittura
@@ -1216,13 +1569,61 @@ if (corrupt) {  // dati illeggibili: copia di sicurezza prima di qualunque scrit
 }
 if (lastRaw && hasData(lastRaw)) makeBackup(lastRaw);  // prima di qualunque scrittura
 S = loadState(lastRaw);
-if (!corrupt) recovered = migrateLegacyB();
-renderSpese();
-if (corrupt) showToast('⚠️ Dati salvati illeggibili: copia di sicurezza conservata', 'error', 6000);
-else if (recovered.length) showToast('↺ Dati recuperati: ' + recovered.join(', '), 'ok', 5000);
 
-// Chiede al browser di non cancellare mai i dati salvati per liberare spazio.
-try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
+function finishBoot(idbRaw, idbDiag) {
+  if (bootDone) return;
+  bootDone = true;
+  var fromIdb = false, recovered = [];
+  try {
+    if (typeof idbRaw === 'string' && idbRaw !== lastRaw) {
+      var ok = true;
+      try { JSON.parse(idbRaw); } catch (e) { ok = false; }
+      var ir = ok ? loadState(idbRaw) : null;
+      if (ir && ir.rev > S.rev) {   // la memoria di riserva ha dati più recenti
+        S = ir;
+        persist();
+        fromIdb = true;
+      }
+    }
+    if (!fromIdb && lastRaw && !corrupt) idbPut('main', lastRaw);  // allinea la memoria di riserva
+  } catch (e) {}
+  try { updateDiag(idbDiag); } catch (e) {}
+  diag.bootSource = fromIdb ? 'recuperati dalla memoria di riserva' : (bootRaw && hasData(bootRaw) ? 'presenti' : 'vuoti');
+  try { if (!(corrupt && !fromIdb)) recovered = migrateLegacyB(); } catch (e) {}
+  bootRev = S.rev;
+  ready = true;
+  document.body.classList.remove('booting');
+  renderSpese();
+  if (fromIdb) showToast('↺ Dati recuperati dalla memoria di riserva', 'ok', 5000);
+  else if (corrupt) showToast('⚠️ Dati salvati illeggibili: copia di sicurezza conservata', 'error', 6000);
+  else if (recovered.length) showToast('↺ Dati recuperati: ' + recovered.join(', '), 'ok', 5000);
+  try { checkEnvironment(); checkRecovery(); } catch (e) {}
+  // Chiede al browser di non cancellare mai i dati salvati per liberare spazio.
+  try {
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(function (r) { persisted = r; }, function () {});
+  } catch (e) {}
+}
+/* Risposta della memoria di riserva arrivata dopo il tempo massimo:
+   la si usa solo se è più recente e nel frattempo non è stato modificato niente. */
+function lateIdb(idbRaw) {
+  if (typeof idbRaw !== 'string' || S.rev !== bootRev) return;
+  var ir = null;
+  try { JSON.parse(idbRaw); ir = loadState(idbRaw); } catch (e) {}
+  if (!ir || ir.rev <= S.rev) return;
+  if (lastRaw && hasData(lastRaw)) makeBackup(lastRaw);
+  S = ir;
+  persist();
+  bootRev = S.rev;
+  rerenderPreservingUI();
+  showToast('↺ Dati recuperati dalla memoria di riserva', 'ok', 5000);
+}
+
+var bootTimer = setTimeout(function () { finishBoot(null, null); }, 1500);
+Promise.all([idbGet('main'), idbGet('diag')]).then(function (r) {
+  clearTimeout(bootTimer);
+  if (!bootDone) finishBoot(r[0], r[1]);
+  else lateIdb(r[0]);
+}, function () { clearTimeout(bootTimer); finishBoot(null, null); });
 </script>
 </body>
 </html>

@@ -297,7 +297,7 @@ body {
 .diag-row { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: .8rem; }
 .diag-row:last-child { border-bottom: none; }
 .diag-row span:first-child { color: var(--muted); }
-.diag-row span:last-child { text-align: right; word-break: break-all; }
+.diag-row span:last-child { text-align: right; overflow-wrap: anywhere; }
 body.booting .content, body.booting .bottom-nav { pointer-events: none; }
 
 /* ── PROGRESS BAR ── */
@@ -570,9 +570,11 @@ function loadState(rawStr) {
 }
 
 /* Salva TUTTO lo stato e verifica rileggendo. Restituisce true se riuscito. */
-function persist() {
-  S.rev = (S.rev || 0) + 1;      // ogni salvataggio ha un numero crescente:
-  S.savedAt = Date.now();        // all'avvio vince la copia con il numero più alto
+function persist(backupRaw) {
+  // ogni salvataggio ha un numero di revisione più alto di qualunque altro visto finora
+  S.rev = Math.max(S.rev || 0, revSeen) + 1;
+  revSeen = S.rev;
+  S.savedAt = Date.now();
   var out = {};
   for (var xk in S.extra) out[xk] = S.extra[xk];
   out.global = S.global;
@@ -582,7 +584,7 @@ function persist() {
   for (var mi = 0; mi < S.months.length; mi++) out[mi] = S.months[mi];
   var json = JSON.stringify(out);
   lastJson = json;
-  var idbDone = idbPut('main', json);   // memoria di riserva: scritta anche se localStorage fallisce
+  var idbDone = idbWriteMain(json, S.rev, backupRaw);   // memoria di riserva: scritta anche se localStorage fallisce
   try {
     localStorage.getItem(STORAGE_KEY);  // se non si può nemmeno leggere, non scrivere
     localStorage.setItem(STORAGE_KEY, json);
@@ -605,7 +607,20 @@ function persist() {
 function syncFromStorage() {
   var raw = readRaw();
   if (raw === undefined || raw === lastRaw) return false;  // lettura fallita: si tiene la memoria
+  if (!parses(raw)) {
+    // localStorage svuotato o rovinato mentre l'app era aperta: i dati in memoria
+    // non si buttano, si riscrivono
+    if (raw) { try { if (!localStorage.getItem('spese2026-illeggibile')) localStorage.setItem('spese2026-illeggibile', raw); } catch (e) {} }
+    if (stateHasData(S)) persist(); else lastRaw = raw;
+    return false;
+  }
+  // un'altra finestra ha salvato: si prendono i suoi dati, ma la revisione non torna
+  // indietro e, se i suoi dati sono più vecchi dei nostri, i nostri finiscono tra le copie
+  var prev = Math.max(S.rev || 0, revSeen);
+  if (revOf(raw) < prev && lastJson && hasData(lastJson)) makeBackup(lastJson);
   S = loadState(raw);
+  if (S.rev < prev) S.rev = prev;
+  revSeen = Math.max(revSeen, S.rev);
   lastRaw = raw;
   return true;
 }
@@ -1105,14 +1120,14 @@ function onResume() {
 }
 /* Uscendo dall'app: copia di sicurezza e scrittura su disco forzata
    della memoria di riserva, prima che Android possa chiudere l'app. */
-function revOf(raw) { try { return +JSON.parse(raw).rev || 0; } catch (e) { return -1; } }
 function onLeave() {
   if (!ready) return;
-  // la copia più recente tra quella di questa istanza e quella in localStorage
-  var raw = readRaw(), best = lastJson;
-  if (raw && (!best || revOf(raw) >= revOf(best))) best = raw;
+  // localStorage è condiviso tra le finestre e contiene lo stato più recente,
+  // a meno che l'ultima scrittura di questa istanza non sia fallita
+  var raw = readRaw();
+  var best = (parses(raw) && !unsaved) ? raw : (lastJson || (parses(raw) ? raw : null));
   if (!best) return;
-  idbPut('main', best, true);
+  idbWriteMain(best, revOf(best), null, true);
   if (hasData(best)) makeBackup(best);
 }
 document.addEventListener('visibilitychange', function () {
@@ -1273,21 +1288,21 @@ function restoreFrom(raw) {
     return;
   }
   syncFromStorage();
-  makeBackup(readRaw() || null);
-  var prevRev = S.rev || 0;
-  S = loadState(raw);
-  S.rev = Math.max(S.rev || 0, prevRev);   // il numero di revisione non torna mai indietro
-  if (persist()) {
-    rerenderPreservingUI();
-    renderBackups();
-    clearAlert('recovery');
-    showToast('✓ Dati ripristinati', 'ok', 3000);
-  }
+  var cur = readRaw() || lastJson || null;
+  makeBackup(cur);
+  S = loadState(raw);   // persist() gli darà una revisione più alta di tutte
+  // la copia dei dati attuali va nella stessa scrittura del ripristino
+  persist(cur && hasData(cur) ? cur : null);
+  rerenderPreservingUI();
+  renderBackups();
+  clearAlert('recovery');
+  clearAlert('other-copy');
+  showToast('✓ Dati ripristinati', 'ok', 3000);
 }
 function exportBackup() {
   syncFromStorage();
   persist();
-  var blob = new Blob([lastRaw || '{}'], { type: 'application/json' });
+  var blob = new Blob([lastJson || lastRaw || '{}'], { type: 'application/json' });
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'spese2026-backup-' + stamp().substring(0, 10) + '.json';
@@ -1309,14 +1324,17 @@ el('import-file').addEventListener('change', function () {
 
 /* ══════════════════════════════════════════════════════════════════════
    MEMORIA DI RISERVA (IndexedDB)
-   Ogni salvataggio viene scritto anche qui. localStorage può tenere le
-   ultime modifiche in memoria per alcuni secondi prima di scriverle su
-   disco: se Android chiude l'app in quel momento, vanno perse. IndexedDB
-   le consegna al disco subito. All'avvio vince la copia più recente
-   (numero di revisione più alto).
+   Ogni salvataggio viene scritto anche qui. Chrome tiene le modifiche di
+   localStorage in memoria fino a un minuto prima di scriverle su disco:
+   se Android chiude l'app in quel momento, vanno perse. IndexedDB le
+   consegna al disco subito.
+   Regole: ogni stato ha un numero di revisione che non torna mai indietro;
+   una copia più recente non viene mai buttata, al massimo finisce tra le
+   copie di sicurezza.
    ══════════════════════════════════════════════════════════════════════ */
 var IDB_NAME = 'spese2026';
 var IDB_STORE = 'dati';
+var WRITTEN_MAX = 300;     // impronte degli ultimi stati scritti da questa versione
 var idbConn = null;
 var idbAvailable = null;   // null = non ancora verificato
 
@@ -1361,6 +1379,44 @@ function idbGet(key) {
 function idbPut(key, value, strict) {
   return idbTx('readwrite', function (st) { st.put(value, key); }, strict).then(function (o) { return !!o; });
 }
+/* Impronta di un testo (FNV-1a), per riconoscere gli stati scritti da questa versione. */
+function hashStr(s) {
+  var h = 0x811c9dc5;
+  for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16) + ':' + s.length;
+}
+function revOf(raw) { try { return +JSON.parse(raw).rev || 0; } catch (e) { return -1; } }
+function parses(raw) { if (typeof raw !== 'string') return false; try { JSON.parse(raw); return true; } catch (e) { return false; } }
+
+/* Scrive lo stato in IndexedDB in un'unica transazione:
+   - se lì c'è uno stato con revisione PIÙ ALTA e diverso, prima lo mette tra le copie;
+   - se backupRaw è dato, salva anche quello come copia (prima di un ripristino);
+   - annota l'impronta dello stato tra quelli scritti da questa versione. */
+function idbWriteMain(json, rev, backupRaw, strict) {
+  if (typeof json !== 'string') return Promise.resolve(false);
+  var k = stamp();
+  return idbTx('readwrite', function (st) {
+    if (backupRaw) st.put(backupRaw, 'backup:' + k + 'p');
+    var g = st.get('main');
+    g.onsuccess = function () {
+      try {
+        var cur = g.result;
+        if (typeof cur === 'string' && cur !== json && revOf(cur) > rev && hasData(cur)) st.put(cur, 'backup:' + k + 'x');
+        st.put(json, 'main');
+      } catch (e) { try { st.transaction.abort(); } catch (e2) {} }
+    };
+    var w = st.get('written');
+    w.onsuccess = function () {
+      try {
+        var list = Array.isArray(w.result) ? w.result : [];
+        var h = hashStr(json);
+        if (list[list.length - 1] !== h) list.push(h);
+        if (list.length > WRITTEN_MAX) list = list.slice(list.length - WRITTEN_MAX);
+        st.put(list, 'written');
+      } catch (e) { try { st.transaction.abort(); } catch (e2) {} }
+    };
+  }, strict).then(function (o) { return !!o; });
+}
 /* Copie nella memoria di riserva: [{key, raw}], la più recente per prima. */
 function idbBackups() {
   return idbTx('readonly', function (st, out) {
@@ -1373,16 +1429,32 @@ function idbBackups() {
   }).then(function (o) { return o && o.value ? o.value.reverse() : []; });
 }
 
+/* Quale copia usare all'avvio, tra localStorage (ls) e memoria di riserva (idb). */
+function chooseCopy(lsRaw, lsCorrupt, idbRaw, written) {
+  if (!parses(idbRaw) || idbRaw === lsRaw) return 'ls';
+  if (!lsRaw || lsCorrupt) return hasData(idbRaw) ? 'idb' : 'ls';          // localStorage vuoto o rovinato
+  var lsRev = revOf(lsRaw), idbRev = revOf(idbRaw);
+  if (!hasData(lsRaw) && hasData(idbRaw) && idbRev >= lsRev) return 'idb';  // localStorage svuotato
+  if (idbRev > lsRev) {
+    // localStorage è rimasto indietro: è uno stato scritto da questa versione e poi superato?
+    if (!Array.isArray(written)) return 'idb';
+    if (written.indexOf(hashStr(lsRaw)) >= 0) return 'idb';
+    // no: l'ha scritto un'altra versione dell'app o un ripristino → vince localStorage,
+    // e la copia della memoria di riserva finisce tra le copie di sicurezza
+  }
+  return 'ls';
+}
+
 /* ══════════════════════════════════════════════════════════════════════
    DIAGNOSI — dice in che modo è aperta l'app e se il browser conserva
    davvero i dati tra un'apertura e l'altra.
    ══════════════════════════════════════════════════════════════════════ */
-var APP_VERSION = '8 ottobre 2026';
+var APP_VERSION = '8 ottobre 2026 (2)';
 var DIAG_KEY = 'spese2026-diag';
-var diag = { opens: 0, firstSeen: 0, prevOpen: 0, lsWiped: false, bootSource: '' };
+var diag = { opens: 0, firstSeen: 0, prevOpen: 0, lsWiped: false, bootSource: '', countStarted: false };
 var persisted = null;
 
-function updateDiag(idbD) {
+function updateDiag(idbD, idbRaw) {
   var lsD = null;
   try { lsD = JSON.parse(localStorage.getItem(DIAG_KEY)); } catch (e) {}
   if (!lsD || typeof lsD !== 'object') lsD = null;
@@ -1397,52 +1469,76 @@ function updateDiag(idbD) {
   diag.prevOpen = Math.max(+a.lastOpen || 0, +b.lastOpen || 0);
   diag.opens = d.opens;
   diag.firstSeen = d.firstSeen;
-  // la memoria di riserva ricordava l'app ma localStorage no: il browser l'ha svuotato
-  diag.lsWiped = !!idbD && !lsD;
-  try { localStorage.setItem(DIAG_KEY, JSON.stringify(d)); } catch (e) {}
-  idbPut('diag', d);
+  diag.countStarted = !lsD && !idbD && !!(bootRaw && hasData(bootRaw));  // conteggio appena iniziato, dati già presenti
+  // localStorage non ha più né dati né copie, ma la memoria di riserva sì: il browser l'ha svuotato
+  diag.lsWiped = !lsUnavailable && !bootRaw && backupKeys().length === 0 && typeof idbRaw === 'string' && hasData(idbRaw);
+  // il contatore sta nella memoria di riserva (scrivere localStorage all'avvio ritarderebbe
+  // la scrittura su disco delle prime modifiche); localStorage solo se manca IndexedDB
+  idbPut('diag', d).then(function (ok) {
+    if (!ok) { try { localStorage.setItem(DIAG_KEY, JSON.stringify(d)); } catch (e) {} }
+  });
 }
 
+var APP_PACKAGES = {
+  'org.telegram.messenger': 'Telegram', 'org.telegram.messenger.web': 'Telegram', 'com.whatsapp': 'WhatsApp',
+  'com.whatsapp.w4b': 'WhatsApp Business', 'com.google.android.gm': 'Gmail', 'com.anthropic.claude': 'Claude',
+  'com.facebook.katana': 'Facebook', 'com.facebook.orca': 'Messenger', 'com.instagram.android': 'Instagram',
+  'com.google.android.googlequicksearchbox': 'app Google', 'com.android.chrome': 'Chrome',
+  'com.sec.android.app.sbrowser': 'Samsung Internet', 'com.microsoft.office.outlook': 'Outlook'
+};
 function envInfo() {
   var ua = navigator.userAgent || '';
-  var e = { ua: ua, standalone: false, inApp: '', priv: 'unknown' };
+  var e = { ua: ua, standalone: false, inApp: '', priv: 'unknown', from: '' };
   try {
     e.standalone = matchMedia('(display-mode: standalone)').matches ||
       matchMedia('(display-mode: fullscreen)').matches ||
       matchMedia('(display-mode: minimal-ui)').matches || navigator.standalone === true;
   } catch (x) {}
-  e.webview = /; wv\)/.test(ua);
-  var apps = [[/FBAN|FBAV|FB_IAB/, 'Facebook'], [/Instagram/, 'Instagram'], [/Messenger/, 'Messenger'],
+  var brands = [];
+  try { brands = (navigator.userAgentData && navigator.userAgentData.brands || []).map(function (b) { return b.brand; }); } catch (x) {}
+  e.webview = /; wv\)/.test(ua) || brands.indexOf('Android WebView') >= 0;
+  var apps = [[/FBAN|FBAV|FB_IAB|FB4A/, 'Facebook'], [/Instagram/, 'Instagram'], [/Messenger/, 'Messenger'],
     [/LinkedInApp/, 'LinkedIn'], [/musical_ly|TikTok|BytedanceWebview/, 'TikTok'], [/Snapchat/, 'Snapchat'],
-    [/ Line\//, 'LINE'], [/Telegram/, 'Telegram'], [/ GSA\//, 'app Google'], [/Twitter/, 'X'], [/Pinterest/, 'Pinterest']];
+    [/ Line\//, 'LINE'], [/Telegram/, 'Telegram'], [/\bGSA\//, 'app Google'], [/Twitter/, 'X'], [/Pinterest/, 'Pinterest']];
   for (var i = 0; i < apps.length; i++) if (apps[i][0].test(ua)) { e.inApp = apps[i][1]; break; }
-  if (/DuckDuckGo\//.test(ua)) e.browser = 'DuckDuckGo';
-  else if (/ Focus\/| Klar\//.test(ua)) e.browser = 'Firefox Focus';
-  else if (/SamsungBrowser\//.test(ua)) e.browser = 'Samsung Internet';
-  else if (/Firefox\//.test(ua)) e.browser = 'Firefox';
-  else if (/ EdgA?\//.test(ua)) e.browser = 'Edge';
-  else if (/ OPR\/| OPT\//.test(ua)) e.browser = 'Opera';
-  else if (/MiuiBrowser\//.test(ua)) e.browser = 'Mi Browser';
+  if (!e.inApp && typeof window.TelegramWebviewProxy !== 'undefined') e.inApp = 'Telegram';
+  var ref = document.referrer || '';
+  if (/^android-app:\/\//.test(ref)) {
+    var pkg = ref.replace(/^android-app:\/\//, '').split('/')[0];
+    e.from = APP_PACKAGES[pkg] || pkg;
+  }
+  var ver = '';
+  if (/DuckDuckGo\//.test(ua) || brands.indexOf('DuckDuckGo') >= 0) e.browser = 'DuckDuckGo';
+  else if (/ Focus\/| Klar\//.test(ua)) { e.browser = 'Firefox Focus'; ver = (ua.match(/ (?:Focus|Klar)\/(\d+)/) || [])[1]; }
+  else if (/SamsungBrowser\//.test(ua)) { e.browser = 'Samsung Internet'; ver = (ua.match(/SamsungBrowser\/(\d+)/) || [])[1]; }
+  else if (/Firefox\//.test(ua)) { e.browser = 'Firefox'; ver = (ua.match(/Firefox\/(\d+)/) || [])[1]; }
+  else if (/ EdgA?\//.test(ua)) { e.browser = 'Edge'; ver = (ua.match(/ EdgA?\/(\d+)/) || [])[1]; }
+  else if (/ OPR\/| OPT\//.test(ua)) { e.browser = 'Opera'; ver = (ua.match(/ OP[RT]\/(\d+)/) || [])[1]; }
+  else if (/MiuiBrowser\//.test(ua)) { e.browser = 'Mi Browser'; ver = (ua.match(/MiuiBrowser\/(\d+)/) || [])[1]; }
   else if (navigator.brave) e.browser = 'Brave';
-  else if (/Chrome\//.test(ua)) e.browser = e.webview ? 'WebView di Android' : 'Chrome';
+  else if (/Chrome\//.test(ua)) { e.browser = e.webview ? 'WebView di Android' : 'Chrome'; ver = (ua.match(/Chrome\/(\d+)/) || [])[1]; }
   else e.browser = 'altro';
-  var v = ua.match(/(?:SamsungBrowser|Firefox|Chrome)\/(\d+)/);
-  if (v) e.browser += ' ' + v[1];
-  e.wipesOnClose = /DuckDuckGo|Focus/.test(e.browser);
+  if (ver) e.browser += ' ' + ver;
+  e.focus = /Firefox Focus/.test(e.browser);
+  e.ddg = /DuckDuckGo/.test(e.browser);
   return e;
 }
 
-/* Navigazione in incognito (Chrome e derivati): la quota di spazio concessa
-   è molto più piccola che in una scheda normale. */
+/* Incognito: con le versioni attuali di Chrome non si può riconoscere con certezza.
+   Si risponde 'yes' solo quando lo spazio concesso è chiaramente quello dell'incognito
+   delle versioni precedenti; mai un 'no' sicuro. */
 function detectPrivate() {
   return new Promise(function (resolve) {
     try {
       var ua = navigator.userAgent || '';
-      if (!/Chrome\//.test(ua) || /Firefox\//.test(ua) || navigator.brave || !navigator.storage || !navigator.storage.estimate) return resolve('unknown');
+      if (ENV.standalone || !/Chrome\//.test(ua) || /Firefox\//.test(ua) || navigator.brave ||
+          !navigator.storage || !navigator.storage.estimate) return resolve('unknown');
       navigator.storage.estimate().then(function (q) {
         if (!q || !q.quota) return resolve('unknown');
-        var heap = (window.performance && performance.memory && performance.memory.jsHeapSizeLimit) || 1073741824;
-        resolve(q.quota < 2 * heap ? 'yes' : 'no');
+        var GiB = 1073741824, extra = q.quota - (q.usage || 0);
+        if (extra > 0 && extra % GiB === 0) return resolve('unknown');   // quota fissa: nessuna informazione
+        var heap = (window.performance && performance.memory && performance.memory.jsHeapSizeLimit) || GiB;
+        resolve(q.quota < 2 * heap ? 'yes' : 'unknown');
       }, function () { resolve('unknown'); });
     } catch (e) { resolve('unknown'); }
   });
@@ -1465,13 +1561,19 @@ function clearAlert(id) {
 function checkEnvironment() {
   var e = ENV;
   var chromeLink = 'intent://' + location.host + location.pathname + '#Intent;scheme=https;package=com.android.chrome;end';
+  var where = '<b>' + esc(location.host + location.pathname) + '</b>';
   if (e.webview || e.inApp) {
     showAlert('env', '<div class="alert-title">⚠️ L\'app è aperta dentro un\'altra app' + (e.inApp ? ' (' + esc(e.inApp) + ')' : '') + '</div>' +
-      'Qui il telefono può cancellare i dati quando la chiudi. Aprila sempre da <b>Chrome</b> o dall\'icona sulla schermata Home.' +
+      'Qui i dati restano separati da quelli di Chrome e possono sembrare spariti quando apri l\'app in un altro modo. ' +
+      'Aprila sempre da <b>Chrome</b> (indirizzo ' + where + ') o dall\'icona sulla schermata Home.' +
       '<div class="alert-actions"><a href="' + chromeLink + '">Apri in Chrome</a><button data-action="dismiss-alert">Ho capito</button></div>');
-  } else if (e.wipesOnClose) {
-    showAlert('env', '<div class="alert-title">⚠️ ' + esc(e.browser) + ' cancella i dati quando lo chiudi</div>' +
-      'Questo browser elimina tutto ciò che salvano i siti. Apri l\'app con <b>Chrome</b>.' +
+  } else if (e.focus) {
+    showAlert('env', '<div class="alert-title">⚠️ Firefox Focus cancella tutto quando lo chiudi</div>' +
+      'Apri l\'app con <b>Chrome</b> (indirizzo ' + where + ').' +
+      '<div class="alert-actions"><a href="' + chromeLink + '">Apri in Chrome</a><button data-action="dismiss-alert">Ho capito</button></div>');
+  } else if (e.ddg) {
+    showAlert('env', '<div class="alert-title">⚠️ DuckDuckGo può cancellare i dati quando lo chiudi</div>' +
+      'Se hai attivato la cancellazione automatica o usi il pulsante Fuoco, i dati dell\'app spariscono. Meglio aprirla con <b>Chrome</b>.' +
       '<div class="alert-actions"><a href="' + chromeLink + '">Apri in Chrome</a><button data-action="dismiss-alert">Ho capito</button></div>');
   }
   if (diag.lsWiped) {
@@ -1484,7 +1586,7 @@ function checkEnvironment() {
   detectPrivate().then(function (r) {
     ENV.priv = r;
     if (r === 'yes' && !e.webview && !e.inApp) {
-      showAlert('private', '<div class="alert-title">⚠️ Sei in navigazione in incognito</div>' +
+      showAlert('private', '<div class="alert-title">⚠️ Sembra che tu sia in navigazione in incognito</div>' +
         'In incognito tutto viene cancellato quando chiudi. Apri l\'app in una scheda <b>normale</b> di Chrome ' +
         '(non in incognito) e da lì aggiungila alla schermata Home.' +
         '<div class="alert-actions"><button data-action="dismiss-alert">Ho capito</button></div>');
@@ -1492,20 +1594,41 @@ function checkEnvironment() {
   });
 }
 
-/* Se all'apertura non ci sono dati ma esiste una copia che ne contiene, la propone. */
+function stampMs(t) {   // 2026-10-02_093015 → millisecondi (ora locale)
+  return new Date(+t.substring(0, 4), +t.substring(5, 7) - 1, +t.substring(8, 10),
+    +t.substring(11, 13), +t.substring(13, 15), +t.substring(15, 17)).getTime();
+}
+/* Se non ci sono dati ma esiste una copia che ne contiene, la propone. Non la propone
+   se lo stato vuoto è stato salvato apposta dall'utente dopo quella copia. */
 function checkRecovery() {
   if (stateHasData(S)) return;
   allBackups().then(function (list) {
+    if (stateHasData(S)) return;          // nel frattempo i dati sono arrivati
     for (var i = 0; i < list.length; i++) {
-      if (list[i].raw && hasData(list[i].raw)) {
-        showAlert('recovery', '<div class="alert-title">⚠️ Non ci sono dati, ma c\'è una copia salvata</div>' +
-          'Copia del ' + backupLabel(list[i].stamp) + ': ' + esc(summary(list[i].raw)) + '.' +
-          '<div class="alert-actions"><button data-action="restore-backup" data-src="' + list[i].src + '" data-key="' + esc(list[i].key) + '">↺ Ripristina questa copia</button>' +
-          '<button data-action="dismiss-alert">No, grazie</button></div>');
-        return;
-      }
+      if (!list[i].raw || !hasData(list[i].raw)) continue;
+      if (S.rev > 0 && S.savedAt > stampMs(list[i].stamp)) return;
+      showAlert('recovery', '<div class="alert-title">⚠️ Non ci sono dati, ma c\'è una copia salvata</div>' +
+        'Copia del ' + backupLabel(list[i].stamp) + ': ' + esc(summary(list[i].raw)) + '.' +
+        '<div class="alert-actions"><button data-action="restore-backup" data-src="' + list[i].src + '" data-key="' + esc(list[i].key) + '">↺ Ripristina questa copia</button>' +
+        '<button data-action="dismiss-alert">No, grazie</button></div>');
+      return;
     }
   });
+}
+/* Conserva una copia con un nome noto (in entrambe le memorie) e ne restituisce la chiave. */
+function keepCopy(raw) {
+  var k = stamp() + 'o';
+  try { localStorage.setItem(BK_PREFIX + k, raw); } catch (e) {}
+  idbPut('backup:' + k, raw, true);
+  return 'backup:' + k;
+}
+/* Avviso per una copia diversa da quella mostrata (es. arrivata tardi dalla memoria
+   di riserva, o scritta da un'altra versione dell'app): già salvata tra le copie. */
+function offerOtherCopy(raw, key, src) {
+  showAlert('other-copy', '<div class="alert-title">Ho trovato un\'altra versione dei tuoi dati</div>' +
+    'È diversa da quella che vedi: ' + esc(summary(raw)) + '. L\'ho conservata tra le copie automatiche.' +
+    '<div class="alert-actions"><button data-action="restore-backup" data-src="' + src + '" data-key="' + esc(key) + '">↺ Usa quella</button>' +
+    '<button data-action="dismiss-alert">Tieni questa</button></div>');
 }
 
 function fmtDate(ms) {
@@ -1515,16 +1638,19 @@ function fmtDate(ms) {
 }
 function diagRows(backupCount) {
   var e = ENV;
+  var how = (e.webview || e.inApp) ? '⚠️ dentro un\'altra app' + (e.inApp ? ' (' + e.inApp + ')' : '')
+    : (e.standalone ? 'app sulla schermata Home' : 'scheda del browser');
+  if (e.from && !e.standalone) how += ', da un link in ' + e.from;
   return [
-    ['Aperta come', (e.webview || e.inApp) ? '⚠️ dentro un\'altra app' + (e.inApp ? ' (' + e.inApp + ')' : '')
-      : (e.standalone ? 'app sulla schermata Home' : 'scheda del browser')],
+    ['Aperta come', how],
     ['Browser', e.browser],
-    ['In incognito', e.priv === 'yes' ? '⚠️ probabilmente sì' : (e.priv === 'no' ? 'no' : 'non determinabile')],
-    ['Memoria protetta dal browser', persisted === true ? 'sì' : (persisted === false ? 'no' : '—')],
+    ['In incognito', e.priv === 'yes' ? '⚠️ probabilmente sì' : (e.standalone ? 'no' : 'non determinabile')],
+    ['Memoria principale', lsUnavailable ? '⚠️ non disponibile' : 'attiva'],
     ['Memoria di riserva', idbAvailable ? 'attiva' : (idbAvailable === false ? '⚠️ non disponibile' : '…')],
+    ['Protezione extra del browser', persisted === true ? 'sì' : (persisted === false ? 'no' : '—')],
     ['Dati all\'apertura', diag.bootSource || '—'],
-    ['Ultimo salvataggio', S && S.savedAt ? fmtDate(S.savedAt) + ' (n. ' + S.rev + ')' : '—'],
-    ['Aperture registrate', diag.opens + (diag.firstSeen ? ' dal ' + fmtDate(diag.firstSeen) : '')],
+    ['Ultimo salvataggio', S && S.savedAt ? fmtDate(S.savedAt) + ' (n. ' + S.rev + ')' : (stateHasData(S) ? 'prima dell\'aggiornamento' : '—')],
+    ['Aperture registrate', diag.opens + (diag.countStarted ? ' (conteggio iniziato con questa versione)' : (diag.firstSeen ? ' dal ' + fmtDate(diag.firstSeen) : ''))],
     ['Apertura precedente', diag.prevOpen ? fmtDate(diag.prevOpen) : 'nessuna'],
     ['Copie automatiche', backupCount == null ? '…' : String(backupCount)],
     ['Versione app', APP_VERSION],
@@ -1535,7 +1661,8 @@ function renderDiag() {
   var paint = function (n) {
     var rows = diagRows(n), html = '';
     for (var i = 0; i < rows.length; i++) html += '<div class="diag-row"><span>' + esc(rows[i][0]) + '</span><span>' + esc(rows[i][1]) + '</span></div>';
-    if (diag.opens === 1) html += '<p style="font-size:.75rem;color:var(--muted);margin-top:8px">Se avevi già usato l\'app su questo telefono, "1 apertura" significa che il browser ha cancellato i suoi dati.</p>';
+    if (diag.opens === 1 && diag.bootSource === 'vuoti') html += '<p style="font-size:.75rem;color:var(--muted);margin-top:8px">Se avevi già usato l\'app su questo telefono e ora vedi "1 apertura", il browser ha cancellato i suoi dati.</p>';
+    if (!ENV.standalone) html += '<p style="font-size:.75rem;color:var(--muted);margin-top:8px">Controlla che la scheda di Chrome non sia in incognito (barra scura con l\'icona del cappello e degli occhiali): in incognito tutto viene cancellato alla chiusura.</p>';
     el('diag-box').innerHTML = html;
   };
   paint(null);
@@ -1545,11 +1672,11 @@ function copyDiag() {
   allBackups().then(function (l) {
     var rows = diagRows(l.length), txt = 'Spese 2026 — stato del salvataggio\n';
     for (var i = 0; i < rows.length; i++) txt += rows[i][0] + ': ' + rows[i][1] + '\n';
-    txt += 'UA: ' + ENV.ua + '\n';
-    var done = function () { showToast('📋 Copiato: incollalo nella chat', 'ok', 3000); };
+    txt += 'UA: ' + ENV.ua + '\nReferrer: ' + (document.referrer || '—') + '\n';
+    var fail = function () { showToast('Fai uno screenshot di questo riquadro', 'ok', 4000); };
     try {
-      navigator.clipboard.writeText(txt).then(done, function () { showToast('Fai uno screenshot di questo riquadro', 'ok', 4000); });
-    } catch (e) { showToast('Fai uno screenshot di questo riquadro', 'ok', 4000); }
+      navigator.clipboard.writeText(txt).then(function () { showToast('📋 Copiato: incollalo nella chat', 'ok', 3000); }, fail);
+    } catch (e) { fail(); }
   });
 }
 
@@ -1557,44 +1684,51 @@ function copyDiag() {
 var ready = false;       // finché i dati non sono caricati, le modifiche sono bloccate
 var bootDone = false;
 var bootRev = 0;
+var revSeen = 0;         // revisione più alta vista ovunque: la prossima sarà più alta
 var ENV = envInfo();
 
 lastRaw = readRaw();
-if (lastRaw === undefined) lastRaw = null;
+var lsUnavailable = lastRaw === undefined;
+if (lsUnavailable) lastRaw = null;
 var bootRaw = lastRaw;
-var corrupt = false;
-if (lastRaw) { try { JSON.parse(lastRaw); } catch (e) { corrupt = true; } }
+var corrupt = !!lastRaw && !parses(lastRaw);
 if (corrupt) {  // dati illeggibili: copia di sicurezza prima di qualunque scrittura
   try { if (!localStorage.getItem('spese2026-illeggibile')) localStorage.setItem('spese2026-illeggibile', lastRaw); } catch (e) {}
 }
 if (lastRaw && hasData(lastRaw)) makeBackup(lastRaw);  // prima di qualunque scrittura
-S = loadState(lastRaw);
+S = loadState(corrupt ? null : lastRaw);
+revSeen = S.rev;
 
-function finishBoot(idbRaw, idbDiag) {
+function finishBoot(idbRaw, idbDiag, written, idbRead) {
   if (bootDone) return;
   bootDone = true;
+  clearTimeout(slowTimer);
+  clearAlert('loading');
   var fromIdb = false, recovered = [];
   try {
-    if (typeof idbRaw === 'string' && idbRaw !== lastRaw) {
-      var ok = true;
-      try { JSON.parse(idbRaw); } catch (e) { ok = false; }
-      var ir = ok ? loadState(idbRaw) : null;
-      if (ir && ir.rev > S.rev) {   // la memoria di riserva ha dati più recenti
-        S = ir;
-        persist();
-        fromIdb = true;
-      }
+    if (parses(idbRaw)) revSeen = Math.max(revSeen, revOf(idbRaw));
+    var choice = chooseCopy(corrupt ? null : lastRaw, corrupt, idbRaw, written);
+    if (choice === 'idb') {
+      S = loadState(idbRaw);
+      persist();                       // revisione = revSeen + 1: più alta di entrambe
+      fromIdb = true;
+    } else if (idbRead && lastRaw && !corrupt && lastRaw !== idbRaw) {
+      // vince localStorage; se la memoria di riserva aveva una versione diversa e più
+      // recente, finisce tra le copie (idbWriteMain) e la si propone all'utente
+      if (parses(idbRaw) && hasData(idbRaw) && revOf(idbRaw) > revOf(lastRaw)) offerOtherCopy(idbRaw, keepCopy(idbRaw), 'idb');
+      idbWriteMain(lastRaw, revOf(lastRaw));
     }
-    if (!fromIdb && lastRaw && !corrupt) idbPut('main', lastRaw);  // allinea la memoria di riserva
   } catch (e) {}
-  try { updateDiag(idbDiag); } catch (e) {}
-  diag.bootSource = fromIdb ? 'recuperati dalla memoria di riserva' : (bootRaw && hasData(bootRaw) ? 'presenti' : 'vuoti');
+  try { updateDiag(idbDiag, idbRaw); } catch (e) {}
+  diag.bootSource = fromIdb ? 'recuperati dalla memoria di riserva'
+    : (bootRaw && hasData(bootRaw) ? 'presenti' : 'vuoti');
+  if (fromIdb && lsUnavailable) diag.bootSource = 'presenti (solo memoria di riserva)';
   try { if (!(corrupt && !fromIdb)) recovered = migrateLegacyB(); } catch (e) {}
   bootRev = S.rev;
   ready = true;
   document.body.classList.remove('booting');
   renderSpese();
-  if (fromIdb) showToast('↺ Dati recuperati dalla memoria di riserva', 'ok', 5000);
+  if (fromIdb && !lsUnavailable) showToast('↺ Dati recuperati dalla memoria di riserva', 'ok', 5000);
   else if (corrupt) showToast('⚠️ Dati salvati illeggibili: copia di sicurezza conservata', 'error', 6000);
   else if (recovered.length) showToast('↺ Dati recuperati: ' + recovered.join(', '), 'ok', 5000);
   try { checkEnvironment(); checkRecovery(); } catch (e) {}
@@ -1603,27 +1737,35 @@ function finishBoot(idbRaw, idbDiag) {
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(function (r) { persisted = r; }, function () {});
   } catch (e) {}
 }
-/* Risposta della memoria di riserva arrivata dopo il tempo massimo:
-   la si usa solo se è più recente e nel frattempo non è stato modificato niente. */
-function lateIdb(idbRaw) {
-  if (typeof idbRaw !== 'string' || S.rev !== bootRev) return;
-  var ir = null;
-  try { JSON.parse(idbRaw); ir = loadState(idbRaw); } catch (e) {}
-  if (!ir || ir.rev <= S.rev) return;
-  if (lastRaw && hasData(lastRaw)) makeBackup(lastRaw);
-  S = ir;
-  persist();
-  bootRev = S.rev;
-  rerenderPreservingUI();
-  showToast('↺ Dati recuperati dalla memoria di riserva', 'ok', 5000);
+/* Risposta della memoria di riserva arrivata dopo il tempo massimo di attesa. */
+function lateIdb(idbRaw, written) {
+  if (!parses(idbRaw) || idbRaw === lastRaw || idbRaw === lastJson) return;
+  revSeen = Math.max(revSeen, revOf(idbRaw));
+  if (S.rev === bootRev && chooseCopy(corrupt ? null : bootRaw, corrupt, idbRaw, written) === 'idb') {
+    // niente è stato modificato: si usa la copia più recente
+    if (lastRaw && hasData(lastRaw)) makeBackup(lastRaw);
+    S = loadState(idbRaw);
+    persist();
+    bootRev = S.rev;
+    rerenderPreservingUI();
+    clearAlert('recovery');
+    showToast('↺ Dati recuperati dalla memoria di riserva', 'ok', 5000);
+  } else if (hasData(idbRaw)) {
+    // l'utente ha già modificato: la copia arrivata tardi non si butta, la si conserva e la si propone
+    offerOtherCopy(idbRaw, keepCopy(idbRaw), 'idb');
+  }
 }
 
-var bootTimer = setTimeout(function () { finishBoot(null, null); }, 1500);
-Promise.all([idbGet('main'), idbGet('diag')]).then(function (r) {
-  clearTimeout(bootTimer);
-  if (!bootDone) finishBoot(r[0], r[1]);
-  else lateIdb(r[0]);
-}, function () { clearTimeout(bootTimer); finishBoot(null, null); });
+// Si aspetta la memoria di riserva: di solito risponde in meno di un decimo di secondo.
+var slowTimer = setTimeout(function () {
+  showAlert('loading', '<div class="alert-title">Caricamento dei dati…</div>', 'ok');
+}, 1500);
+var capTimer = setTimeout(function () { finishBoot(null, null, null, false); }, 8000);
+Promise.all([idbGet('main'), idbGet('diag'), idbGet('written')]).then(function (r) {
+  clearTimeout(capTimer);
+  if (!bootDone) finishBoot(r[0], r[1], r[2], true);
+  else lateIdb(r[0], r[2]);
+}, function () { clearTimeout(capTimer); finishBoot(null, null, null, false); });
 </script>
 </body>
 </html>

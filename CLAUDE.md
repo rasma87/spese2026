@@ -19,6 +19,23 @@ e non c'è un'altra copia. Una modifica sbagliata li cancella per sempre.
    eseguita**, prima di qualunque scrittura.
 5. **Prima di ogni modifica dei dati chiamare `syncFromStorage()`**: con più finestre
    aperte, una copia vecchia non deve mai sovrascrivere dati più nuovi.
+6. **Ogni salvataggio passa da `persist()`**, che scrive sia localStorage sia la memoria
+   di riserva IndexedDB (db `spese2026`, store `dati`, chiave `main`) tramite
+   `idbWriteMain()`. Motivo: Chrome scrive localStorage su disco fino a ~1 minuto dopo;
+   se Android chiude l'app prima, le modifiche si perdono (dimostrato con chiusure
+   forzate). Non scrivere mai `main` in IndexedDB con `idbPut` diretto.
+7. **La revisione (`rev`) non torna mai indietro**: `persist()` usa
+   `max(S.rev, revSeen) + 1`. All'avvio `chooseCopy()` decide tra localStorage e
+   IndexedDB; la copia scartata, se più recente e con dati, va sempre tra le copie
+   (`keepCopy` / backup `x`) e viene proposta all'utente. Mai buttare una copia più recente.
+8. **All'avvio si aspetta la risposta di IndexedDB** (fino a 8 s) prima di sbloccare
+   l'app (`body.booting`). Non accorciare a un tempo fisso breve.
+
+## Test di regressione
+
+Gli script dei collaudi sono nella scratchpad della sessione (`confirm-*/`, `t*.mjs`,
+`tkill*.mjs`): coprono chiusure forzate, più finestre, versione precedente aperta,
+memoria di riserva lenta, localStorage svuotato/bloccato/rovinato, falsi allarmi.
 
 ## Prima di pubblicare su `main`
 

@@ -299,6 +299,7 @@ body {
 .diag-row span:first-child { color: var(--muted); }
 .diag-row span:last-child { text-align: right; overflow-wrap: anywhere; }
 body.booting .content, body.booting .bottom-nav { pointer-events: none; }
+body.booting .content { opacity: .6; }
 
 /* ── PROGRESS BAR ── */
 .progress-bar-bg { background: var(--bg3); border-radius: 4px; height: 6px; overflow: hidden; }
@@ -622,6 +623,9 @@ function syncFromStorage() {
   if (S.rev < prev) S.rev = prev;
   revSeen = Math.max(revSeen, S.rev);
   lastRaw = raw;
+  // scritto da un'altra versione dell'app: lo si registra anche nella memoria di riserva,
+  // così se poi localStorage perde le nostre modifiche successive si sa che sono più nuove
+  if (!ownFormat(raw)) idbWriteMain(raw, revOf(raw));
   return true;
 }
 
@@ -1086,7 +1090,10 @@ document.addEventListener('click', function (e) {
 
   } else if (a === 'dismiss-alert') {
     var box = t.closest('.alert');
-    if (box) box.remove();
+    if (box) {
+      if (box.getAttribute('data-alert') === 'other-copy') clearPending();   // "Tieni questa"
+      box.remove();
+    }
 
   } else if (a === 'close-month-modal') {
     el('monthModal').classList.remove('open');
@@ -1202,7 +1209,8 @@ function makeBackup(raw) {
     if (!(keys.length && localStorage.getItem(keys[0]) === raw)) {
       localStorage.setItem(BK_PREFIX + k, raw);
       keys = backupKeys();
-      for (var i = BK_KEEP; i < keys.length; i++) localStorage.removeItem(keys[i]);
+      var keepLs = pendingLsKey();   // la copia proposta all'utente non si elimina
+      for (var i = BK_KEEP; i < keys.length; i++) if (keys[i] !== keepLs) localStorage.removeItem(keys[i]);
     }
   } catch (e) {}
   // la stessa copia anche nella memoria di riserva
@@ -1210,9 +1218,17 @@ function makeBackup(raw) {
     if (list.length && list[0].raw === raw) return null;
     return idbPut('backup:' + k, raw).then(idbBackups).then(function (l2) {
       if (l2.length <= BK_KEEP) return;
-      idbTx('readwrite', function (st) { for (var j = BK_KEEP; j < l2.length; j++) st['delete'](l2[j].key); });
+      idbTx('readwrite', function (st) {
+        var pr = st.get(PENDING_KEY);
+        pr.onsuccess = function () {
+          for (var j = BK_KEEP; j < l2.length; j++) if (l2[j].key !== pr.result) st['delete'](l2[j].key);
+        };
+      });
     });
   });
+}
+function pendingLsKey() {
+  try { var p = localStorage.getItem(PENDING_LS); return p ? BK_PREFIX + p : null; } catch (e) { return null; }
 }
 /* Tutte le copie (localStorage + memoria di riserva), la più recente per prima. */
 function allBackups() {
@@ -1229,7 +1245,9 @@ function allBackups() {
       if (!seen[st2]) { list.push({ stamp: st2, src: 'idb', key: ib[j].key, raw: ib[j].raw }); seen[st2] = 1; }
     }
     list.sort(function (a, b) { return a.stamp < b.stamp ? 1 : (a.stamp > b.stamp ? -1 : 0); });
-    return list;
+    var out = [];
+    for (var n = 0; n < list.length; n++) if (!out.length || list[n].raw !== out[out.length - 1].raw) out.push(list[n]);
+    return out;
   });
 }
 function readBackup(src, key) {
@@ -1263,7 +1281,7 @@ function summary(raw) {
       voci += n;
       if (n || num(m.entrateCarta) || num(m.entrateContanti)) mesi.push(MONTHS[mi].substring(0, 3));
     }
-    return voci + ' voci' + (mesi.length ? ' · ' + mesi.join(', ') : '');
+    return (voci === 1 ? '1 voce' : voci + ' voci') + (mesi.length ? ' · ' + mesi.join(', ') : '');
   } catch (e) { return ''; }
 }
 function renderBackups() {
@@ -1297,6 +1315,7 @@ function restoreFrom(raw) {
   renderBackups();
   clearAlert('recovery');
   clearAlert('other-copy');
+  clearPending();
   showToast('✓ Dati ripristinati', 'ok', 3000);
 }
 function exportBackup() {
@@ -1334,7 +1353,9 @@ el('import-file').addEventListener('change', function () {
    ══════════════════════════════════════════════════════════════════════ */
 var IDB_NAME = 'spese2026';
 var IDB_STORE = 'dati';
-var WRITTEN_MAX = 300;     // impronte degli ultimi stati scritti da questa versione
+var WRITTEN_MAX = 2000;    // impronte degli ultimi stati scritti da questa versione
+var PENDING_KEY = 'pending-other';      // IndexedDB: copia proposta all'utente e non ancora decisa
+var PENDING_LS = 'spese2026-pending';   // la stessa informazione in localStorage (nuova chiave)
 var idbConn = null;
 var idbAvailable = null;   // null = non ancora verificato
 
@@ -1387,6 +1408,23 @@ function hashStr(s) {
 }
 function revOf(raw) { try { return +JSON.parse(raw).rev || 0; } catch (e) { return -1; } }
 function parses(raw) { if (typeof raw !== 'string') return false; try { JSON.parse(raw); return true; } catch (e) { return false; } }
+/* Scritto da questa versione? persist() mette 'rev' dopo 'legacyBImported';
+   la versione precedente lo conservava come campo sconosciuto, prima di 'global'. */
+function ownFormat(raw) {
+  try { var k = Object.keys(JSON.parse(raw)), l = k.indexOf('legacyBImported'); return l >= 0 && k.indexOf('rev') > l; }
+  catch (e) { return false; }
+}
+/* Contenuto di uno stato senza revisione e data, per confrontare due copie. */
+function canon(raw) {
+  try { var st = loadState(raw); return JSON.stringify([st.global, st.months, st.extra]); } catch (e) { return ''; }
+}
+/* Come idbGet, ma se la lettura fallisce lo dice (invece di sembrare "niente salvato"). */
+function idbGetStrict(key) {
+  return idbTx('readonly', function (st, out) {
+    var r = st.get(key);
+    r.onsuccess = function () { out.value = r.result; };
+  }).then(function (o) { if (!o) throw new Error('idb'); return o.value; });
+}
 
 /* Scrive lo stato in IndexedDB in un'unica transazione:
    - se lì c'è uno stato con revisione PIÙ ALTA e diverso, prima lo mette tra le copie;
@@ -1396,12 +1434,15 @@ function idbWriteMain(json, rev, backupRaw, strict) {
   if (typeof json !== 'string') return Promise.resolve(false);
   var k = stamp();
   return idbTx('readwrite', function (st) {
+    var noMain = false;
     if (backupRaw) st.put(backupRaw, 'backup:' + k + 'p');
     var g = st.get('main');
     g.onsuccess = function () {
       try {
         var cur = g.result;
-        if (typeof cur === 'string' && cur !== json && revOf(cur) > rev && hasData(cur)) st.put(cur, 'backup:' + k + 'x');
+        noMain = typeof cur !== 'string';
+        if (typeof cur === 'string' && !parses(cur)) st.put(cur, 'illeggibile:' + k);   // mai buttata
+        else if (typeof cur === 'string' && cur !== json && revOf(cur) > rev && hasData(cur)) st.put(cur, 'backup:' + k + 'x');
         st.put(json, 'main');
       } catch (e) { try { st.transaction.abort(); } catch (e2) {} }
     };
@@ -1409,6 +1450,8 @@ function idbWriteMain(json, rev, backupRaw, strict) {
     w.onsuccess = function () {
       try {
         var list = Array.isArray(w.result) ? w.result : [];
+        // prima scrittura in assoluto: tutto discende dallo stato trovato all'avvio
+        if (noMain && bootRaw && parses(bootRaw) && bootRaw !== json && list.indexOf(hashStr(bootRaw)) < 0) list.push(hashStr(bootRaw));
         var h = hashStr(json);
         if (list[list.length - 1] !== h) list.push(h);
         if (list.length > WRITTEN_MAX) list = list.slice(list.length - WRITTEN_MAX);
@@ -1435,10 +1478,11 @@ function chooseCopy(lsRaw, lsCorrupt, idbRaw, written) {
   if (!lsRaw || lsCorrupt) return hasData(idbRaw) ? 'idb' : 'ls';          // localStorage vuoto o rovinato
   var lsRev = revOf(lsRaw), idbRev = revOf(idbRaw);
   if (!hasData(lsRaw) && hasData(idbRaw) && idbRev >= lsRev) return 'idb';  // localStorage svuotato
-  if (idbRev > lsRev) {
-    // localStorage è rimasto indietro: è uno stato scritto da questa versione e poi superato?
+  // IndexedDB 'main' è sempre l'ultima cosa scritta: a parità di revisione è la più recente
+  if (idbRev > lsRev || (idbRev === lsRev && Array.isArray(written) && hasData(idbRaw))) {
+    // localStorage è rimasto indietro: è uno stato scritto (o registrato) da questa versione?
     if (!Array.isArray(written)) return 'idb';
-    if (written.indexOf(hashStr(lsRaw)) >= 0) return 'idb';
+    if (written.indexOf(hashStr(lsRaw)) >= 0 || ownFormat(lsRaw)) return 'idb';
     // no: l'ha scritto un'altra versione dell'app o un ripristino → vince localStorage,
     // e la copia della memoria di riserva finisce tra le copie di sicurezza
   }
@@ -1449,7 +1493,7 @@ function chooseCopy(lsRaw, lsCorrupt, idbRaw, written) {
    DIAGNOSI — dice in che modo è aperta l'app e se il browser conserva
    davvero i dati tra un'apertura e l'altra.
    ══════════════════════════════════════════════════════════════════════ */
-var APP_VERSION = '8 ottobre 2026 (2)';
+var APP_VERSION = '14 ottobre 2026';
 var DIAG_KEY = 'spese2026-diag';
 var diag = { opens: 0, firstSeen: 0, prevOpen: 0, lsWiped: false, bootSource: '', countStarted: false };
 var persisted = null;
@@ -1461,17 +1505,19 @@ function updateDiag(idbD, idbRaw) {
   if (!idbD || typeof idbD !== 'object') idbD = null;
   var a = lsD || {}, b = idbD || {};
   var first = Math.min(+a.firstSeen || Infinity, +b.firstSeen || Infinity);
+  var lsSeenBefore = !!(a.lsSeen || b.lsSeen);
   var d = {
     firstSeen: isFinite(first) ? first : Date.now(),
     opens: Math.max(+a.opens || 0, +b.opens || 0) + 1,
-    lastOpen: Date.now()
+    lastOpen: Date.now(),
+    lsSeen: (lsSeenBefore || (bootRaw && hasData(bootRaw))) ? 1 : 0   // localStorage ha mai avuto dati su disco
   };
   diag.prevOpen = Math.max(+a.lastOpen || 0, +b.lastOpen || 0);
   diag.opens = d.opens;
   diag.firstSeen = d.firstSeen;
   diag.countStarted = !lsD && !idbD && !!(bootRaw && hasData(bootRaw));  // conteggio appena iniziato, dati già presenti
   // localStorage non ha più né dati né copie, ma la memoria di riserva sì: il browser l'ha svuotato
-  diag.lsWiped = !lsUnavailable && !bootRaw && backupKeys().length === 0 && typeof idbRaw === 'string' && hasData(idbRaw);
+  diag.lsWiped = lsSeenBefore && !lsUnavailable && !bootRaw && backupKeys().length === 0 && typeof idbRaw === 'string' && hasData(idbRaw);
   // il contatore sta nella memoria di riserva (scrivere localStorage all'avvio ritarderebbe
   // la scrittura su disco delle prime modifiche); localStorage solo se manca IndexedDB
   idbPut('diag', d).then(function (ok) {
@@ -1563,7 +1609,8 @@ function checkEnvironment() {
   var chromeLink = 'intent://' + location.host + location.pathname + '#Intent;scheme=https;package=com.android.chrome;end';
   var where = '<b>' + esc(location.host + location.pathname) + '</b>';
   if (e.webview || e.inApp) {
-    showAlert('env', '<div class="alert-title">⚠️ L\'app è aperta dentro un\'altra app' + (e.inApp ? ' (' + esc(e.inApp) + ')' : '') + '</div>' +
+    var appName = e.inApp || e.from;
+    showAlert('env', '<div class="alert-title">⚠️ L\'app è aperta dentro un\'altra app' + (appName ? ' (' + esc(appName) + ')' : '') + '</div>' +
       'Qui i dati restano separati da quelli di Chrome e possono sembrare spariti quando apri l\'app in un altro modo. ' +
       'Aprila sempre da <b>Chrome</b> (indirizzo ' + where + ') o dall\'icona sulla schermata Home.' +
       '<div class="alert-actions"><a href="' + chromeLink + '">Apri in Chrome</a><button data-action="dismiss-alert">Ho capito</button></div>');
@@ -1618,9 +1665,31 @@ function checkRecovery() {
 /* Conserva una copia con un nome noto (in entrambe le memorie) e ne restituisce la chiave. */
 function keepCopy(raw) {
   var k = stamp() + 'o';
-  try { localStorage.setItem(BK_PREFIX + k, raw); } catch (e) {}
-  idbPut('backup:' + k, raw, true);
+  try { localStorage.setItem(BK_PREFIX + k, raw); localStorage.setItem(PENDING_LS, k); } catch (e) {}
+  // la copia e il segno "da decidere" nella stessa scrittura su disco
+  idbTx('readwrite', function (st) { st.put(raw, 'backup:' + k); st.put('backup:' + k, PENDING_KEY); }, true);
+  pendingOther = 'backup:' + k;
   return 'backup:' + k;
+}
+var pendingOther = null;
+/* L'utente ha deciso (Usa quella / Tieni questa): la copia resta, il segno no. */
+function clearPending() {
+  pendingOther = null;
+  try { localStorage.removeItem(PENDING_LS); } catch (e) {}
+  idbTx('readwrite', function (st) { st['delete'](PENDING_KEY); });
+}
+/* All'avvio: se una proposta era rimasta in sospeso (es. l'app è stata chiusa prima
+   di rispondere), la si ripropone finché la copia è diversa da quella mostrata. */
+function checkPending(key) {
+  if (typeof key !== 'string' || pendingOther) return;
+  idbGet(key).then(function (raw) {
+    if (pendingOther) return;
+    var cur = lastJson || lastRaw;
+    if (typeof raw === 'string' && hasData(raw) && canon(raw) !== canon(cur)) {
+      pendingOther = key;
+      offerOtherCopy(raw, key, 'idb');
+    } else clearPending();
+  });
 }
 /* Avviso per una copia diversa da quella mostrata (es. arrivata tardi dalla memoria
    di riserva, o scritta da un'altra versione dell'app): già salvata tra le copie. */
@@ -1640,7 +1709,7 @@ function diagRows(backupCount) {
   var e = ENV;
   var how = (e.webview || e.inApp) ? '⚠️ dentro un\'altra app' + (e.inApp ? ' (' + e.inApp + ')' : '')
     : (e.standalone ? 'app sulla schermata Home' : 'scheda del browser');
-  if (e.from && !e.standalone) how += ', da un link in ' + e.from;
+  if (e.from && !e.standalone && e.from !== e.inApp) how += ', da un link in ' + e.from;
   return [
     ['Aperta come', how],
     ['Browser', e.browser],
@@ -1662,7 +1731,7 @@ function renderDiag() {
     var rows = diagRows(n), html = '';
     for (var i = 0; i < rows.length; i++) html += '<div class="diag-row"><span>' + esc(rows[i][0]) + '</span><span>' + esc(rows[i][1]) + '</span></div>';
     if (diag.opens === 1 && diag.bootSource === 'vuoti') html += '<p style="font-size:.75rem;color:var(--muted);margin-top:8px">Se avevi già usato l\'app su questo telefono e ora vedi "1 apertura", il browser ha cancellato i suoi dati.</p>';
-    if (!ENV.standalone) html += '<p style="font-size:.75rem;color:var(--muted);margin-top:8px">Controlla che la scheda di Chrome non sia in incognito (barra scura con l\'icona del cappello e degli occhiali): in incognito tutto viene cancellato alla chiusura.</p>';
+    if (!ENV.standalone && !ENV.webview && !ENV.inApp) html += '<p style="font-size:.75rem;color:var(--muted);margin-top:8px">Controlla che la scheda di Chrome non sia in incognito (barra scura con l\'icona del cappello e degli occhiali): in incognito tutto viene cancellato alla chiusura.</p>';
     el('diag-box').innerHTML = html;
   };
   paint(null);
@@ -1698,17 +1767,22 @@ if (corrupt) {  // dati illeggibili: copia di sicurezza prima di qualunque scrit
 if (lastRaw && hasData(lastRaw)) makeBackup(lastRaw);  // prima di qualunque scrittura
 S = loadState(corrupt ? null : lastRaw);
 revSeen = S.rev;
+try { renderSpese(); } catch (e) {}   // si vedono subito i dati; le modifiche restano bloccate
 
-function finishBoot(idbRaw, idbDiag, written, idbRead) {
+function finishBoot(idbRaw, idbDiag, written, idbRead, pendingKey) {
   if (bootDone) return;
   bootDone = true;
   clearTimeout(slowTimer);
   clearAlert('loading');
-  var fromIdb = false, recovered = [];
+  var fromIdb = false, recovered = [], lsBehind = false;
   try {
     if (parses(idbRaw)) revSeen = Math.max(revSeen, revOf(idbRaw));
     var choice = chooseCopy(corrupt ? null : lastRaw, corrupt, idbRaw, written);
     if (choice === 'idb') {
+      // localStorage era solo indietro rispetto alle nostre ultime scritture (normale se
+      // il telefono chiude l'app subito dopo una modifica): recupero silenzioso
+      lsBehind = !corrupt && !!lastRaw && hasData(lastRaw) &&
+        (ownFormat(lastRaw) || (Array.isArray(written) && written.indexOf(hashStr(lastRaw)) >= 0));
       S = loadState(idbRaw);
       persist();                       // revisione = revSeen + 1: più alta di entrambe
       fromIdb = true;
@@ -1728,18 +1802,19 @@ function finishBoot(idbRaw, idbDiag, written, idbRead) {
   ready = true;
   document.body.classList.remove('booting');
   renderSpese();
-  if (fromIdb && !lsUnavailable) showToast('↺ Dati recuperati dalla memoria di riserva', 'ok', 5000);
+  if (fromIdb && !lsUnavailable && !lsBehind) showToast('↺ Dati recuperati dalla memoria di riserva', 'ok', 5000);
   else if (corrupt) showToast('⚠️ Dati salvati illeggibili: copia di sicurezza conservata', 'error', 6000);
   else if (recovered.length) showToast('↺ Dati recuperati: ' + recovered.join(', '), 'ok', 5000);
-  try { checkEnvironment(); checkRecovery(); } catch (e) {}
+  try { checkEnvironment(); checkRecovery(); checkPending(pendingKey); } catch (e) {}
   // Chiede al browser di non cancellare mai i dati salvati per liberare spazio.
   try {
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(function (r) { persisted = r; }, function () {});
   } catch (e) {}
 }
 /* Risposta della memoria di riserva arrivata dopo il tempo massimo di attesa. */
-function lateIdb(idbRaw, written) {
-  if (!parses(idbRaw) || idbRaw === lastRaw || idbRaw === lastJson) return;
+function lateIdb(idbRaw, written, pendingKey) {
+  checkPending(pendingKey);
+  if (!parses(idbRaw) || idbRaw === lastRaw || idbRaw === lastJson || idbRaw === bootRaw) return;
   revSeen = Math.max(revSeen, revOf(idbRaw));
   if (S.rev === bootRev && chooseCopy(corrupt ? null : bootRaw, corrupt, idbRaw, written) === 'idb') {
     // niente è stato modificato: si usa la copia più recente
@@ -1750,8 +1825,9 @@ function lateIdb(idbRaw, written) {
     rerenderPreservingUI();
     clearAlert('recovery');
     showToast('↺ Dati recuperati dalla memoria di riserva', 'ok', 5000);
-  } else if (hasData(idbRaw)) {
-    // l'utente ha già modificato: la copia arrivata tardi non si butta, la si conserva e la si propone
+  } else if (hasData(idbRaw) && revOf(idbRaw) > revOf(corrupt ? null : bootRaw) && canon(idbRaw) !== canon(lastJson || lastRaw)) {
+    // l'utente ha già modificato: la copia più recente arrivata tardi non si butta,
+    // la si conserva e la si propone
     offerOtherCopy(idbRaw, keepCopy(idbRaw), 'idb');
   }
 }
@@ -1761,11 +1837,22 @@ var slowTimer = setTimeout(function () {
   showAlert('loading', '<div class="alert-title">Caricamento dei dati…</div>', 'ok');
 }, 1500);
 var capTimer = setTimeout(function () { finishBoot(null, null, null, false); }, 8000);
-Promise.all([idbGet('main'), idbGet('diag'), idbGet('written')]).then(function (r) {
+function readIdbState() {
+  return Promise.all([idbGetStrict('main'), idbGetStrict('diag'), idbGetStrict('written'), idbGetStrict(PENDING_KEY)]);
+}
+readIdbState().then(function (r) {
   clearTimeout(capTimer);
-  if (!bootDone) finishBoot(r[0], r[1], r[2], true);
-  else lateIdb(r[0], r[2]);
-}, function () { clearTimeout(capTimer); finishBoot(null, null, null, false); });
+  if (!bootDone) finishBoot(r[0], r[1], r[2], true, r[3]);
+  else lateIdb(r[0], r[2], r[3]);
+}, function () {
+  // la memoria di riserva non ha risposto: si parte da localStorage senza toccarla,
+  // e si riprova a leggerla tra un secondo
+  clearTimeout(capTimer);
+  finishBoot(null, null, null, false);
+  setTimeout(function () {
+    readIdbState().then(function (r) { lateIdb(r[0], r[2], r[3]); }, function () {});
+  }, 1000);
+});
 </script>
 </body>
 </html>
